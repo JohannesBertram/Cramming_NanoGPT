@@ -25,6 +25,7 @@ echo COPIED
 # Load the conda environment
 source activate myenv
 echo ENV
+ls
 # Run your script
 python data/openwebtext/prepare.py
 echo DONE
