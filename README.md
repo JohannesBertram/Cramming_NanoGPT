@@ -1,5 +1,7 @@
 # Work in progress: trying to cram nanoGPT
 
+This is basically just the code from [nanoGPT](https://github.com/karpathy/nanoGPT) for now. The idea is to make some adjustments to see how far one can get training this within 1 day.
+
 # nanoGPT
 
 ![nanoGPT](assets/nanogpt.jpg)
