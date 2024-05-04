@@ -15,13 +15,16 @@
 ####
 #b) copy all needed data to the jobs scratch folder
 ####
+echo START
 cp -R /home/stud502/Cramming_NanoGPT/ /scratch/$SLURM_JOB_ID/
+echo COPIED
 ####
 #c) Load the conda environment and execute your code
 #d) Write your checkpoints to your home directory
 ####
 # Load the conda environment
 source activate myenv
+echo ENV
 # Run your script
 python data/openwebtext/prepare.py
 echo DONE
