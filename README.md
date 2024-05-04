@@ -1,3 +1,4 @@
+# Work in progress: trying to cram nanoGPT
 
 # nanoGPT
 
