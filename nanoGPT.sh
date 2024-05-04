@@ -6,7 +6,7 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --partition=test
 #SBATCH --gres=gpu:1
-#SBATCH --time=40:00
+#SBATCH --time=1:00
 #SBATCH --error=job.%J.err
 #SBATCH --output=job.%J.out
 #SBATCH --mail-type=ALL
