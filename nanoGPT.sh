@@ -5,9 +5,7 @@
 #SBATCH --job-name=get_OWT
 #SBATCH --cpus-per-task=1
 #SBATCH --partition=test
-#SBATCH --mem-per-cpu=3G
-#SBATCH --gres=gpu:0
-#SBATCH --time=15:00
+#SBATCH --gres=gpu:1
 #SBATCH --error=job.%J.err
 #SBATCH --output=job.%J.out
 #SBATCH --mail-type=ALL
