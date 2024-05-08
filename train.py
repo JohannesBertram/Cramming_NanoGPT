@@ -34,7 +34,7 @@ print("start")
 # I/O
 out_dir = 'out'
 eval_interval = 2000
-log_interval = 1
+log_interval = 10
 eval_iters = 200
 eval_only = False # if True, script exits right after the first eval
 always_save_checkpoint = True # if True, always save a checkpoint after each eval
@@ -56,15 +56,15 @@ dropout = 0.0 # for pretraining 0 is good, for finetuning try 0.1+
 bias = False # do we use bias inside LayerNorm and Linear layers?
 # adamw optimizer
 learning_rate = 6e-4 # max learning rate
-max_iters = 600000 # total number of training iterations
+max_iters = 3050 # total number of training iterations
 weight_decay = 1e-1
 beta1 = 0.9
 beta2 = 0.95
 grad_clip = 1.0 # clip gradients at this value, or disable if == 0.0
 # learning rate decay settings
 decay_lr = True # whether to decay the learning rate
-warmup_iters = 2000 # how many steps to warm up for
-lr_decay_iters = 600000 # should be ~= max_iters per Chinchilla
+warmup_iters = 10 # how many steps to warm up for
+lr_decay_iters = 3050 # should be ~= max_iters per Chinchilla
 min_lr = 6e-5 # minimum learning rate, should be ~= learning_rate/10 per Chinchilla
 # DDP settings
 backend = 'nccl' # 'nccl', 'gloo', etc.
@@ -252,6 +252,7 @@ if wandb_log and master_process:
 # training loop
 X, Y = get_batch('train') # fetch the very first batch
 t0 = time.time()
+t_init = t0
 local_iter_num = 0 # number of iterations in the lifetime of this process
 raw_model = model.module if ddp else model # unwrap DDP container if needed
 running_mfu = -1.0
@@ -263,10 +264,10 @@ while True:
         param_group['lr'] = lr
 
     # evaluate the loss on train/val sets and write checkpoints
-    if iter_num % eval_interval == 0 and master_process:
+    # if iter_num % eval_interval == 0 and master_process:
+    if (time.time() - t_init > 86000) or (iter_num > max_iters - 5):
         losses = estimate_loss()
-        print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
-        train_info[:, iter_num] = np.array([iter_num, losses['train'], losses['val']])
+        #print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
         np.save("train_info.npy", train_info)
         if wandb_log:
             wandb.log({
@@ -330,6 +331,7 @@ while True:
             mfu = raw_model.estimate_mfu(batch_size * gradient_accumulation_steps, dt)
             running_mfu = mfu if running_mfu == -1.0 else 0.9*running_mfu + 0.1*mfu
         print(f"iter {iter_num}: loss {lossf:.4f}, time {dt*1000:.2f}ms, mfu {running_mfu*100:.2f}%")
+        train_info[:, iter_num] = np.array([iter_num, lossf, running_mfu*100])
     iter_num += 1
     local_iter_num += 1
 
