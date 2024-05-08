@@ -78,6 +78,9 @@ exec(open('configurator.py').read()) # overrides from command line or config fil
 config = {k: globals()[k] for k in config_keys} # will be useful for logging
 # -----------------------------------------------------------------------------
 
+# saving training progress
+train_info = np.zeros((3, max_iters // log_interval + 1))
+
 # various inits, derived attributes, I/O setup
 ddp = int(os.environ.get('RANK', -1)) != -1 # is this a ddp run?
 if False:
@@ -263,6 +266,8 @@ while True:
     if iter_num % eval_interval == 0 and master_process:
         losses = estimate_loss()
         print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
+        train_info[:, iter_num] = np.array([iter_num, losses['train'], losses['val']])
+        np.save("train_info.npy", train_info)
         if wandb_log:
             wandb.log({
                 "iter": iter_num,
