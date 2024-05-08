@@ -4,9 +4,9 @@
 ####
 #SBATCH --job-name=get_OWT
 #SBATCH --cpus-per-task=1
-#SBATCH --partition=test
+#SBATCH --partition=day
 #SBATCH --gres=gpu:1
-#SBATCH --time=1:00
+#SBATCH --time=60:00
 #SBATCH --error=job.%J.err
 #SBATCH --output=job.%J.out
 #SBATCH --mail-type=ALL
