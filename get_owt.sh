@@ -2,7 +2,7 @@
 ####
 #a) Define slurm job parameters
 ####
-#SBATCH --job-name=test_nanoGPT
+#SBATCH --job-name=get_OWT
 #SBATCH --cpus-per-task=1
 #SBATCH --partition=day
 #SBATCH --gres=gpu:1
@@ -23,6 +23,8 @@ echo COPIED
 ####
 # Load the conda environment
 source activate myenv
+echo ENV
+ls
 # Run your script
-torchrun --standalone --nproc_per_node=8 train.py config/train_gpt2.py
+python data/openwebtext/prepare.py
 echo DONE
