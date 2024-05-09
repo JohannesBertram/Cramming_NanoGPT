@@ -331,7 +331,7 @@ while True:
             mfu = raw_model.estimate_mfu(batch_size * gradient_accumulation_steps, dt)
             running_mfu = mfu if running_mfu == -1.0 else 0.9*running_mfu + 0.1*mfu
         print(f"iter {iter_num}: loss {lossf:.4f}, time {dt*1000:.2f}ms, mfu {running_mfu*100:.2f}%")
-        train_info[:, iter_num] = np.array([iter_num, lossf, running_mfu*100])
+        train_info[:, iter_num // log_interval] = np.array([iter_num, lossf, running_mfu*100])
     iter_num += 1
     local_iter_num += 1
 
