@@ -30,9 +30,10 @@ from torch.distributed import init_process_group, destroy_process_group
 from model import GPTConfig, GPT
 print("start")
 
-torch.manual_seed(0)
-torch.cuda.manual_seed_all(0)
-exp_name = "test_minimal_1"
+seed = 2
+torch.manual_seed(seed)
+torch.cuda.manual_seed_all(seed)
+exp_name = f"test_minimal_{seed}"
 
 # -----------------------------------------------------------------------------
 # default config values designed to train a gpt2 (124M) on OpenWebText
