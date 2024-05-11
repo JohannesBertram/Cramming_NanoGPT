@@ -28,16 +28,17 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.distributed import init_process_group, destroy_process_group
 
 from model import GPTConfig, GPT
-print("start")
 
-torch.manual_seed(0)
-torch.cuda.manual_seed_all(0)
+seed = 1
+torch.manual_seed(seed)
+torch.cuda.manual_seed_all(seed)
+exp_name = f"baseline_{seed}"
 
 # -----------------------------------------------------------------------------
 # default config values designed to train a gpt2 (124M) on OpenWebText
 # I/O
 out_dir = 'out'
-eval_interval = 2000
+eval_interval = 20
 log_interval = 10
 eval_iters = 200
 eval_only = False # if True, script exits right after the first eval
@@ -60,7 +61,7 @@ dropout = 0.0 # for pretraining 0 is good, for finetuning try 0.1+
 bias = False # do we use bias inside LayerNorm and Linear layers?
 # adamw optimizer
 learning_rate = 6e-4 # max learning rate
-max_iters = 3050 # total number of training iterations
+max_iters = 3025 # total number of training iterations
 weight_decay = 1e-1
 beta1 = 0.9
 beta2 = 0.95
@@ -68,7 +69,7 @@ grad_clip = 1.0 # clip gradients at this value, or disable if == 0.0
 # learning rate decay settings
 decay_lr = True # whether to decay the learning rate
 warmup_iters = 10 # how many steps to warm up for
-lr_decay_iters = 3050 # should be ~= max_iters per Chinchilla
+lr_decay_iters = 3025 # should be ~= max_iters per Chinchilla
 min_lr = 6e-5 # minimum learning rate, should be ~= learning_rate/10 per Chinchilla
 # DDP settings
 backend = 'nccl' # 'nccl', 'gloo', etc.
@@ -83,7 +84,7 @@ config = {k: globals()[k] for k in config_keys} # will be useful for logging
 # -----------------------------------------------------------------------------
 
 # saving training progress
-train_info = np.zeros((3, max_iters // log_interval + 1))
+train_info = np.zeros((3, max_iters // eval_interval + 1))
 
 # various inits, derived attributes, I/O setup
 ddp = int(os.environ.get('RANK', -1)) != -1 # is this a ddp run?
@@ -268,19 +269,20 @@ while True:
         param_group['lr'] = lr
 
     # evaluate the loss on train/val sets and write checkpoints
-    # if iter_num % eval_interval == 0 and master_process:
-    if (time.time() - t_init > 86000) or (iter_num > max_iters - 5):
+    if (iter_num % eval_interval == 0 or max_iters - iter_num < 5) and master_process:
+    #if (time.time() - t_init > 86000) or (iter_num > max_iters - 5):
         losses = estimate_loss()
         #print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
-        np.save("train_info.npy", train_info)
-        if wandb_log:
+        train_info[:, iter_num // eval_interval] = np.array([iter_num, losses['train'], losses['val']])
+        
+        """if wandb_log:
             wandb.log({
                 "iter": iter_num,
                 "train/loss": losses['train'],
                 "val/loss": losses['val'],
                 "lr": lr,
                 "mfu": running_mfu*100, # convert to percentage
-            })
+            })"""
         if losses['val'] < best_val_loss or always_save_checkpoint:
             best_val_loss = losses['val']
             if iter_num > 0:
@@ -324,7 +326,7 @@ while True:
     optimizer.zero_grad(set_to_none=True)
 
     # timing and logging
-    t1 = time.time()
+    """t1 = time.time()
     dt = t1 - t0
     t0 = t1
     if iter_num % log_interval == 0 and master_process:
@@ -334,13 +336,14 @@ while True:
         if local_iter_num >= 5: # let the training loop settle a bit
             mfu = raw_model.estimate_mfu(batch_size * gradient_accumulation_steps, dt)
             running_mfu = mfu if running_mfu == -1.0 else 0.9*running_mfu + 0.1*mfu
-        print(f"iter {iter_num}: loss {lossf:.4f}, time {dt*1000:.2f}ms, mfu {running_mfu*100:.2f}%")
-        train_info[:, iter_num // log_interval] = np.array([iter_num, lossf, running_mfu*100])
+        print(f"iter {iter_num}: loss {lossf:.4f}, time {dt*1000:.2f}ms, mfu {running_mfu*100:.2f}%")"""
+        
     iter_num += 1
     local_iter_num += 1
 
     # termination conditions
     if iter_num > max_iters:
+        np.save(f"log_{exp_name}.npy", train_info)
         break
 
 if ddp:
