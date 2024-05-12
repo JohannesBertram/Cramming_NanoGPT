@@ -41,7 +41,7 @@ torch.cuda.manual_seed_all(seed)
 # I/O
 out_dir = 'out'
 eval_interval = 20
-log_interval = 10
+log_interval = 1
 eval_iters = 200
 eval_only = False # if True, script exits right after the first eval
 always_save_checkpoint = True # if True, always save a checkpoint after each eval
