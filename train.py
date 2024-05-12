@@ -29,7 +29,7 @@ from torch.distributed import init_process_group, destroy_process_group
 
 from model import GPTConfig, GPT
 
-seed = 2
+seed = 3
 exp_name = f"BL_{seed}"
 torch.manual_seed(seed)
 torch.cuda.manual_seed_all(seed)
