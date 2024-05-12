@@ -30,8 +30,7 @@ from torch.distributed import init_process_group, destroy_process_group
 from model import GPTConfig, GPT
 
 seed = 1
-exp_name = f"baseline_{seed}"
-seed += 1337
+exp_name = f"BL_{seed}"
 torch.manual_seed(seed)
 torch.cuda.manual_seed_all(seed)
 
@@ -40,7 +39,7 @@ torch.cuda.manual_seed_all(seed)
 # default config values designed to train a gpt2 (124M) on OpenWebText
 # I/O
 out_dir = 'out'
-eval_interval = 20
+eval_interval = 5
 log_interval = 1
 eval_iters = 200
 eval_only = False # if True, script exits right after the first eval
@@ -63,15 +62,15 @@ dropout = 0.0 # for pretraining 0 is good, for finetuning try 0.1+
 bias = False # do we use bias inside LayerNorm and Linear layers?
 # adamw optimizer
 learning_rate = 6e-4 # max learning rate
-max_iters = 3500 # total number of training iterations
+max_iters = 377 # total number of training iterations
 weight_decay = 1e-1
 beta1 = 0.9
 beta2 = 0.95
 grad_clip = 1.0 # clip gradients at this value, or disable if == 0.0
 # learning rate decay settings
 decay_lr = True # whether to decay the learning rate
-warmup_iters = 10 # how many steps to warm up for
-lr_decay_iters = 3500 # should be ~= max_iters per Chinchilla
+warmup_iters = np.round(1/300 * max_iters) # how many steps to warm up for
+lr_decay_iters = 377 # should be ~= max_iters per Chinchilla
 min_lr = 6e-5 # minimum learning rate, should be ~= learning_rate/10 per Chinchilla
 # DDP settings
 backend = 'nccl' # 'nccl', 'gloo', etc.
@@ -271,8 +270,8 @@ while True:
         param_group['lr'] = lr
 
     # evaluate the loss on train/val sets and write checkpoints
-    #if (iter_num % eval_interval == 0 or max_iters - iter_num < 5) and master_process:
-    if time.time() - t_init > 86400:
+    if (iter_num % eval_interval == 0 or max_iters - iter_num < 5) and master_process:
+    #if time.time() - t_init > 86400:
         losses = estimate_loss()
         #print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
         train_info[:, iter_num // eval_interval] = np.array([iter_num, losses['train'], losses['val']])
@@ -300,7 +299,6 @@ while True:
                 }
                 print(f"saving checkpoint to {out_dir}")
                 torch.save(checkpoint, os.path.join(out_dir, f'ckpt_{exp_name}.pt'))
-        break
     if iter_num == 0 and eval_only:
         break
 
@@ -331,7 +329,7 @@ while True:
     optimizer.zero_grad(set_to_none=True)
 
     # timing and logging
-    t1 = time.time()
+    """t1 = time.time()
     dt = t1 - t0
     t0 = t1
     if iter_num % log_interval == 0 and master_process:
@@ -341,7 +339,7 @@ while True:
         if local_iter_num >= 5: # let the training loop settle a bit
             mfu = raw_model.estimate_mfu(batch_size * gradient_accumulation_steps, dt)
             running_mfu = mfu if running_mfu == -1.0 else 0.9*running_mfu + 0.1*mfu
-        print(f"iter {iter_num}: loss {lossf:.4f}, time {dt*1000:.2f}ms, mfu {running_mfu*100:.2f}%")
+        print(f"iter {iter_num}: loss {lossf:.4f}, time {dt*1000:.2f}ms, mfu {running_mfu*100:.2f}%")"""
         
     iter_num += 1
     local_iter_num += 1
