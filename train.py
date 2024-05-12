@@ -52,7 +52,7 @@ wandb_project = 'owt'
 wandb_run_name = 'gpt2' # 'run' + str(time.time())
 # data
 dataset = 'openwebtext'
-gradient_accumulation_steps = 8 * 5 * 1 # used to simulate larger batch sizes
+gradient_accumulation_steps = 8 * 5 * 8 # used to simulate larger batch sizes
 batch_size = 4 # if gradient_accumulation_steps > 1, this is the micro-batch size
 block_size = 1024
 # model
@@ -63,7 +63,7 @@ dropout = 0.0 # for pretraining 0 is good, for finetuning try 0.1+
 bias = False # do we use bias inside LayerNorm and Linear layers?
 # adamw optimizer
 learning_rate = 6e-4 # max learning rate
-max_iters = 3025 # total number of training iterations
+max_iters = 3500 # total number of training iterations
 weight_decay = 1e-1
 beta1 = 0.9
 beta2 = 0.95
@@ -71,7 +71,7 @@ grad_clip = 1.0 # clip gradients at this value, or disable if == 0.0
 # learning rate decay settings
 decay_lr = True # whether to decay the learning rate
 warmup_iters = 10 # how many steps to warm up for
-lr_decay_iters = 3025 # should be ~= max_iters per Chinchilla
+lr_decay_iters = 3500 # should be ~= max_iters per Chinchilla
 min_lr = 6e-5 # minimum learning rate, should be ~= learning_rate/10 per Chinchilla
 # DDP settings
 backend = 'nccl' # 'nccl', 'gloo', etc.
@@ -271,12 +271,13 @@ while True:
         param_group['lr'] = lr
 
     # evaluate the loss on train/val sets and write checkpoints
-    if (iter_num % eval_interval == 0 or max_iters - iter_num < 5) and master_process:
-    #if (time.time() - t_init > 86000) or (iter_num > max_iters - 5):
+    #if (iter_num % eval_interval == 0 or max_iters - iter_num < 5) and master_process:
+    if time.time() - t_init > 86400:
         losses = estimate_loss()
         #print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
         train_info[:, iter_num // eval_interval] = np.array([iter_num, losses['train'], losses['val']])
-        print(train_info[:, iter_num // eval_interval])
+        np.save(f"log_{exp_name}.npy", train_info)
+        #print(train_info[:, iter_num // eval_interval])
         
         """if wandb_log:
             wandb.log({
@@ -299,6 +300,7 @@ while True:
                 }
                 print(f"saving checkpoint to {out_dir}")
                 torch.save(checkpoint, os.path.join(out_dir, f'ckpt_{exp_name}.pt'))
+        break
     if iter_num == 0 and eval_only:
         break
 
@@ -329,7 +331,7 @@ while True:
     optimizer.zero_grad(set_to_none=True)
 
     # timing and logging
-    """t1 = time.time()
+    t1 = time.time()
     dt = t1 - t0
     t0 = t1
     if iter_num % log_interval == 0 and master_process:
@@ -339,7 +341,7 @@ while True:
         if local_iter_num >= 5: # let the training loop settle a bit
             mfu = raw_model.estimate_mfu(batch_size * gradient_accumulation_steps, dt)
             running_mfu = mfu if running_mfu == -1.0 else 0.9*running_mfu + 0.1*mfu
-        print(f"iter {iter_num}: loss {lossf:.4f}, time {dt*1000:.2f}ms, mfu {running_mfu*100:.2f}%")"""
+        print(f"iter {iter_num}: loss {lossf:.4f}, time {dt*1000:.2f}ms, mfu {running_mfu*100:.2f}%")
         
     iter_num += 1
     local_iter_num += 1
