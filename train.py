@@ -29,10 +29,12 @@ from torch.distributed import init_process_group, destroy_process_group
 
 from model import GPTConfig, GPT
 
-seed = 3
-exp_name = f"BL_{seed}"
+seed = 5
+exp_name = f"LR_1e3_{seed}"
 torch.manual_seed(seed)
 torch.cuda.manual_seed_all(seed)
+
+learning_rate = 1e-3 # max learning rate
 
 
 # -----------------------------------------------------------------------------
@@ -61,7 +63,7 @@ n_embd = 768
 dropout = 0.0 # for pretraining 0 is good, for finetuning try 0.1+
 bias = False # do we use bias inside LayerNorm and Linear layers?
 # adamw optimizer
-learning_rate = 6e-4 # max learning rate
+
 max_iters = 377 # total number of training iterations
 weight_decay = 1e-1
 beta1 = 0.9
@@ -299,6 +301,7 @@ while True:
                 }
                 print(f"saving checkpoint to {out_dir}")
                 torch.save(checkpoint, os.path.join(out_dir, f'ckpt_{exp_name}.pt'))
+        np.save(f"log_{exp_name}.npy", train_info)
     if iter_num == 0 and eval_only:
         break
 
@@ -346,7 +349,6 @@ while True:
 
     # termination conditions
     if iter_num > max_iters:
-        np.save(f"log_{exp_name}.npy", train_info)
         break
 
 if ddp:
