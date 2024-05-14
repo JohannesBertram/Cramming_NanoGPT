@@ -6,6 +6,7 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --partition=week
 #SBATCH --gres=gpu:1
+#SBATCH --mem-per-cpu=150
 #SBATCH --time=3000:00
 #SBATCH --error=job.%J.err
 #SBATCH --output=job.%J.out

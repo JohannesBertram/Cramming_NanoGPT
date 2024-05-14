@@ -30,11 +30,11 @@ from torch.distributed import init_process_group, destroy_process_group
 from model import GPTConfig, GPT
 
 seed = 5
-exp_name = f"LR_16e2_{seed}"
+exp_name = f"LR_8e3_{seed}"
 torch.manual_seed(seed)
 torch.cuda.manual_seed_all(seed)
 
-learning_rate = 1.6e-2 # max learning rate
+learning_rate = 8e-3 # max learning rate
 
 
 # -----------------------------------------------------------------------------
