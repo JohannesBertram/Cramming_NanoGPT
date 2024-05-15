@@ -30,18 +30,28 @@ from torch.distributed import init_process_group, destroy_process_group
 from model import GPTConfig, GPT
 
 seed = 5
-exp_name = f"LR_1e4_{seed}"
+exp_name = f"LR_6e4_{seed}"
 torch.manual_seed(seed)
-torch.cuda.manual_seed_all(seed)
+#torch.cuda.manual_seed_all(seed)
+sec_per_day = 86400
 
-learning_rate = 1e-4 # max learning rate
+learning_rate = 6e-4 # max learning rate
+
+gradient_accumulation_steps = 1 # used to simulate larger batch sizes
+batch_size = 4 # if gradient_accumulation_steps > 1, this is the micro-batch size
+mean_batch_size = 4
+est_sec_per_batch_element = 0.178
+max_iters = (sec_per_day / (mean_batch_size * est_sec_per_batch_element)) * 1.2 # total number of training iterations
+lr_decay = 1 # should be ~= max_iters per Chinchilla
+
+eval_interval = 5
+
 
 
 # -----------------------------------------------------------------------------
 # default config values designed to train a gpt2 (124M) on OpenWebText
 # I/O
 out_dir = 'out'
-eval_interval = 5
 log_interval = 1
 eval_iters = 200
 eval_only = False # if True, script exits right after the first eval
@@ -53,8 +63,7 @@ wandb_project = 'owt'
 wandb_run_name = 'gpt2' # 'run' + str(time.time())
 # data
 dataset = 'openwebtext'
-gradient_accumulation_steps = 8 * 5 * 8 # used to simulate larger batch sizes
-batch_size = 4 # if gradient_accumulation_steps > 1, this is the micro-batch size
+
 block_size = 1024
 # model
 n_layer = 12
@@ -64,15 +73,14 @@ dropout = 0.0 # for pretraining 0 is good, for finetuning try 0.1+
 bias = False # do we use bias inside LayerNorm and Linear layers?
 # adamw optimizer
 
-max_iters = 377 # total number of training iterations
+
 weight_decay = 1e-1
 beta1 = 0.9
 beta2 = 0.95
 grad_clip = 1.0 # clip gradients at this value, or disable if == 0.0
 # learning rate decay settings
 decay_lr = True # whether to decay the learning rate
-warmup_iters = np.round(1/300 * max_iters) # how many steps to warm up for
-lr_decay_iters = 377 # should be ~= max_iters per Chinchilla
+warmup = 1/300 # how many steps to warm up for
 min_lr = 6e-5 # minimum learning rate, should be ~= learning_rate/10 per Chinchilla
 # DDP settings
 backend = 'nccl' # 'nccl', 'gloo', etc.
@@ -87,7 +95,7 @@ config = {k: globals()[k] for k in config_keys} # will be useful for logging
 # -----------------------------------------------------------------------------
 
 # saving training progress
-train_info = np.zeros((3, max_iters // eval_interval + 1))
+train_info = np.zeros((4, max_iters // eval_interval + 1))
 
 # various inits, derived attributes, I/O setup
 ddp = int(os.environ.get('RANK', -1)) != -1 # is this a ddp run?
@@ -240,14 +248,28 @@ def estimate_loss():
 
 # learning rate decay scheduler (cosine with warmup)
 def get_lr(it):
-    # 1) linear warmup for warmup_iters steps
-    if it < warmup_iters:
-        return learning_rate * it / warmup_iters
-    # 2) if it > lr_decay_iters, return min learning rate
-    if it > lr_decay_iters:
+    # 1) linear warmup for warmup steps
+    if it < warmup:
+        return learning_rate * it / warmup
+    # 2) if it > lr_decay, return min learning rate
+    if it > lr_decay:
         return min_lr
     # 3) in between, use cosine decay down to min learning rate
-    decay_ratio = (it - warmup_iters) / (lr_decay_iters - warmup_iters)
+    decay_ratio = (it - warmup) / (lr_decay - warmup)
+    assert 0 <= decay_ratio <= 1
+    coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio)) # coeff ranges 0..1
+    return min_lr + coeff * (learning_rate - min_lr)
+
+# learning rate decay scheduler (cosine with warmup)
+def get_lr_timed(tp):
+    # 1) linear warmup for warmup steps
+    if tp / sec_per_day < warmup:
+        return learning_rate * tp / sec_per_day / warmup
+    # 2) if time passed > lr_decay, return min learning rate
+    if tp / sec_per_day > lr_decay:
+        return min_lr
+    # 3) in between, use cosine decay down to min learning rate
+    decay_ratio = (tp - warmup) / (lr_decay - warmup)
     assert 0 <= decay_ratio <= 1
     coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio)) # coeff ranges 0..1
     return min_lr + coeff * (learning_rate - min_lr)
@@ -261,22 +283,24 @@ if wandb_log and master_process:
 X, Y = get_batch('train') # fetch the very first batch
 t0 = time.time()
 t_init = t0
+time_passed = 0
 local_iter_num = 0 # number of iterations in the lifetime of this process
 raw_model = model.module if ddp else model # unwrap DDP container if needed
 running_mfu = -1.0
 while True:
 
     # determine and set the learning rate for this iteration
-    lr = get_lr(iter_num) if decay_lr else learning_rate
+    lr = get_lr_timed(iter_num) if decay_lr else learning_rate
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
+    time_passed = time.time() - t_init
     # evaluate the loss on train/val sets and write checkpoints
-    if (iter_num % eval_interval == 0 or max_iters - iter_num < 5) and master_process:
-    #if time.time() - t_init > 86400:
+    if (iter_num % eval_interval == 0 or time_passed - t_init > 86000) and master_process:
+    #if time.time() - t_init > sec_per_day:
         losses = estimate_loss()
         #print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
-        train_info[:, iter_num // eval_interval] = np.array([iter_num, losses['train'], losses['val']])
+        train_info[:, iter_num // eval_interval] = np.array([iter_num, time_passed, losses['train'], losses['val']])
         np.save(f"log_{exp_name}.npy", train_info)
         #print(train_info[:, iter_num // eval_interval])
         
@@ -302,6 +326,15 @@ while True:
                 print(f"saving checkpoint to {out_dir}")
                 torch.save(checkpoint, os.path.join(out_dir, f'ckpt_{exp_name}.pt'))
         np.save(f"log_{exp_name}.npy", train_info)
+
+    # breaking condition
+    if time_passed > sec_per_day:
+        break
+
+    # offsetting t_init such that the eval time does not count towards the 1 day limit
+    t_eval = time.time() - time_passed
+    t_init += t_eval
+
     if iter_num == 0 and eval_only:
         break
 
@@ -348,8 +381,8 @@ while True:
     local_iter_num += 1
 
     # termination conditions
-    if iter_num > max_iters:
-        break
+    #if iter_num > max_iters:
+    #    break
 
 if ddp:
     destroy_process_group()
