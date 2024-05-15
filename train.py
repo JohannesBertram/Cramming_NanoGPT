@@ -41,7 +41,7 @@ gradient_accumulation_steps = 1 # used to simulate larger batch sizes
 batch_size = 4 # if gradient_accumulation_steps > 1, this is the micro-batch size
 mean_batch_size = 4
 est_sec_per_batch_element = 0.178
-max_iters = np.min(sec_per_day, int(np.round((sec_per_day / (mean_batch_size * est_sec_per_batch_element)) * 1.2))) # total number of training iterations
+max_iters = np.min([sec_per_day, int(np.round((sec_per_day / (mean_batch_size * est_sec_per_batch_element)) * 1.2))]) # total number of training iterations
 lr_decay = 1 # should be ~= max_iters per Chinchilla
 
 eval_interval = max_iters // 200
@@ -296,36 +296,36 @@ while True:
 
     time_passed = time.time() - t_init
     # evaluate the loss on train/val sets and write checkpoints
-    if iter_num > 0:
-        if (iter_num % eval_interval == 0 or time_passed - t_init > sec_per_day - 600) and master_process:
-        #if time.time() - t_init > sec_per_day:
-            losses = estimate_loss()
-            #print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
-            train_info[:, iter_num // eval_interval] = np.array([iter_num, time_passed, losses['train'], losses['val']])
-            #print(train_info[:, iter_num // eval_interval])
-            
-            """if wandb_log:
-                wandb.log({
-                    "iter": iter_num,
-                    "train/loss": losses['train'],
-                    "val/loss": losses['val'],
-                    "lr": lr,
-                    "mfu": running_mfu*100, # convert to percentage
-                })"""
-            if losses['val'] < best_val_loss or always_save_checkpoint:
-                best_val_loss = losses['val']
-                if iter_num > 0:
-                    checkpoint = {
-                        'model': raw_model.state_dict(),
-                        'optimizer': optimizer.state_dict(),
-                        'model_args': model_args,
-                        'iter_num': iter_num,
-                        'best_val_loss': best_val_loss,
-                        'config': config,
-                    }
-                    print(f"saving checkpoint to {out_dir}")
-                    torch.save(checkpoint, os.path.join(out_dir, f'ckpt_{exp_name}.pt'))
-            np.save(f"log_{exp_name}.npy", train_info)
+
+    if (iter_num % eval_interval == 0 or time_passed - t_init > sec_per_day - 600) and master_process:
+    #if time.time() - t_init > sec_per_day:
+        losses = estimate_loss()
+        #print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
+        train_info[:, iter_num // eval_interval] = np.array([iter_num, time_passed, losses['train'], losses['val']])
+        #print(train_info[:, iter_num // eval_interval])
+        
+        """if wandb_log:
+            wandb.log({
+                "iter": iter_num,
+                "train/loss": losses['train'],
+                "val/loss": losses['val'],
+                "lr": lr,
+                "mfu": running_mfu*100, # convert to percentage
+            })"""
+        if losses['val'] < best_val_loss or always_save_checkpoint:
+            best_val_loss = losses['val']
+            if iter_num > 0:
+                checkpoint = {
+                    'model': raw_model.state_dict(),
+                    'optimizer': optimizer.state_dict(),
+                    'model_args': model_args,
+                    'iter_num': iter_num,
+                    'best_val_loss': best_val_loss,
+                    'config': config,
+                }
+                print(f"saving checkpoint to {out_dir}")
+                torch.save(checkpoint, os.path.join(out_dir, f'ckpt_{exp_name}.pt'))
+        np.save(f"log_{exp_name}.npy", train_info)
 
     # breaking condition
     if time_passed > sec_per_day:

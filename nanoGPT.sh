@@ -25,5 +25,5 @@ echo COPIED
 # Load the conda environment
 source activate myenv
 # Run your script
-python train.py --compile=False
+python train.py
 echo DONE
