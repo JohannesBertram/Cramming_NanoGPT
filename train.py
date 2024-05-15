@@ -33,7 +33,7 @@ seed = 5
 exp_name = f"Acc_1_{seed}"
 torch.manual_seed(seed)
 #torch.cuda.manual_seed_all(seed)
-sec_per_day = 600
+sec_per_day = 86400
 
 learning_rate = 6e-4 # max learning rate
 
@@ -41,10 +41,10 @@ gradient_accumulation_steps = 1 # used to simulate larger batch sizes
 batch_size = 4 # if gradient_accumulation_steps > 1, this is the micro-batch size
 mean_batch_size = 4
 est_sec_per_batch_element = 0.178
-max_iters = int(np.round((sec_per_day / (mean_batch_size * est_sec_per_batch_element)) * 1.2)) # total number of training iterations
+max_iters = np.min(sec_per_day, int(np.round((sec_per_day / (mean_batch_size * est_sec_per_batch_element)) * 1.2))) # total number of training iterations
 lr_decay = 1 # should be ~= max_iters per Chinchilla
 
-eval_interval = 30
+eval_interval = max_iters // 100
 
 
 
@@ -297,7 +297,7 @@ while True:
     time_passed = time.time() - t_init
     # evaluate the loss on train/val sets and write checkpoints
     if iter_num > 0:
-        if (iter_num % eval_interval == 0 or time_passed - t_init > sec_per_day - 1) and master_process:
+        if (iter_num % eval_interval == 0 or time_passed - t_init > sec_per_day - 600) and master_process:
         #if time.time() - t_init > sec_per_day:
             losses = estimate_loss()
             #print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
@@ -365,7 +365,7 @@ while True:
     optimizer.zero_grad(set_to_none=True)
 
     # timing and logging
-    t1 = time.time()
+    """t1 = time.time()
     dt = t1 - t0
     t0 = t1
     if iter_num % log_interval == 0 and master_process:
@@ -375,7 +375,7 @@ while True:
         if local_iter_num >= 5: # let the training loop settle a bit
             mfu = raw_model.estimate_mfu(batch_size * gradient_accumulation_steps, dt)
             running_mfu = mfu if running_mfu == -1.0 else 0.9*running_mfu + 0.1*mfu
-        print(f"iter {iter_num}: loss {lossf:.4f}, time {dt*1000:.2f}ms, mfu {running_mfu*100:.2f}%")
+        print(f"iter {iter_num}: loss {lossf:.4f}, time {dt*1000:.2f}ms, mfu {running_mfu*100:.2f}%")"""
         
     iter_num += 1
     local_iter_num += 1
