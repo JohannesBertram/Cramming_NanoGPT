@@ -297,7 +297,7 @@ while True:
     time_passed = time.time() - t_init
     # evaluate the loss on train/val sets and write checkpoints
     if iter_num > 0:
-        if (iter_num % eval_interval == 0 or time_passed - t_init > 86000) and master_process:
+        if (iter_num % eval_interval == 0 or time_passed - t_init > sec_per_day - 600) and master_process:
         #if time.time() - t_init > sec_per_day:
             losses = estimate_loss()
             #print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
