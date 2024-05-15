@@ -41,7 +41,7 @@ gradient_accumulation_steps = 1 # used to simulate larger batch sizes
 batch_size = 4 # if gradient_accumulation_steps > 1, this is the micro-batch size
 mean_batch_size = 4
 est_sec_per_batch_element = 0.178
-max_iters = np.round((sec_per_day / (mean_batch_size * est_sec_per_batch_element)) * 1.2) # total number of training iterations
+max_iters = int(np.round((sec_per_day / (mean_batch_size * est_sec_per_batch_element)) * 1.2)) # total number of training iterations
 lr_decay = 1 # should be ~= max_iters per Chinchilla
 
 eval_interval = 5
