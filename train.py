@@ -33,7 +33,7 @@ seed = 5
 exp_name = f"Acc_1_{seed}"
 torch.manual_seed(seed)
 #torch.cuda.manual_seed_all(seed)
-sec_per_day = 86400
+sec_per_day = 600
 
 learning_rate = 6e-4 # max learning rate
 
@@ -297,7 +297,7 @@ while True:
     time_passed = time.time() - t_init
     # evaluate the loss on train/val sets and write checkpoints
     if iter_num > 0:
-        if (iter_num % eval_interval == 0 or time_passed - t_init > sec_per_day - 600) and master_process:
+        if (iter_num % eval_interval == 0 or time_passed - t_init > sec_per_day - 1) and master_process:
         #if time.time() - t_init > sec_per_day:
             losses = estimate_loss()
             #print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
