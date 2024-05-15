@@ -34,7 +34,7 @@ exp_name = f"LR_1e3_{seed}"
 torch.manual_seed(seed)
 torch.cuda.manual_seed_all(seed)
 
-learning_rate = 1e-3 # max learning rate
+learning_rate = 1e-4 # max learning rate
 
 
 # -----------------------------------------------------------------------------
