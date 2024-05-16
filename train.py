@@ -30,16 +30,16 @@ from torch.distributed import init_process_group, destroy_process_group
 from model import GPTConfig, GPT
 
 seed = 5
-exp_name = f"Acc_1_{seed}"
+exp_name = f"test{seed}"
 torch.manual_seed(seed)
 #torch.cuda.manual_seed_all(seed)
 sec_per_day = 86400
 
 learning_rate = 6e-4 # max learning rate
 
-gradient_accumulation_steps = 1 # used to simulate larger batch sizes
+gradient_accumulation_steps = 8 # used to simulate larger batch sizes
 batch_size = 4 # if gradient_accumulation_steps > 1, this is the micro-batch size
-mean_batch_size = 4
+mean_batch_size = 32
 est_sec_per_batch_element = 0.178
 max_iters = np.min([sec_per_day, int(np.round((sec_per_day / (mean_batch_size * est_sec_per_batch_element)) * 1.2))]) # total number of training iterations
 lr_decay = 1 # should be ~= max_iters per Chinchilla
