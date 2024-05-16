@@ -129,6 +129,8 @@ device_type = 'cuda' if 'cuda' in device else 'cpu' # for later use in torch.aut
 # note: float16 data type will automatically use a GradScaler
 ptdtype = {'float32': torch.float32, 'bfloat16': torch.bfloat16, 'float16': torch.float16}[dtype]
 ctx = nullcontext() if device_type == 'cpu' else torch.amp.autocast(device_type=device_type, dtype=ptdtype)
+print(ctx)
+print(ptdtype)
 
 # poor man's data loader
 data_dir = os.path.join('data', dataset)
@@ -294,7 +296,8 @@ while True:
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
-    time_passed = time.time() - t_init
+    bef_eval = time.time()
+    time_passed = bef_eval - t_init
     # evaluate the loss on train/val sets and write checkpoints
 
     if (iter_num % eval_interval == 0 or time_passed - t_init > sec_per_day - 600) and master_process:
@@ -332,7 +335,7 @@ while True:
         break
 
     # offsetting t_init such that the eval time does not count towards the 1 day limit
-    t_eval = time.time() - time_passed
+    t_eval = time.time() - bef_eval
     t_init += t_eval
 
     if iter_num == 0 and eval_only:
