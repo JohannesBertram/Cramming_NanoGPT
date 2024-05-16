@@ -30,16 +30,17 @@ from torch.distributed import init_process_group, destroy_process_group
 from model import GPTConfig, GPT
 
 seed = 5
-exp_name = f"test{seed}"
+exp_name = f"BS_test_{seed}"
 torch.manual_seed(seed)
 #torch.cuda.manual_seed_all(seed)
 sec_per_day = 86400
 
 learning_rate = 6e-4 # max learning rate
 
-gradient_accumulation_steps = 8 # used to simulate larger batch sizes
-batch_size = 4 # if gradient_accumulation_steps > 1, this is the micro-batch size
-mean_batch_size = 32
+gradient_accumulation_steps = 13 # used to simulate larger batch sizes
+batch_size = 12 # if gradient_accumulation_steps > 1, this is the micro-batch size
+block_size = 512
+mean_batch_size = 156
 est_sec_per_batch_element = 0.178
 max_iters = np.min([sec_per_day, int(np.round((sec_per_day / (mean_batch_size * est_sec_per_batch_element)) * 1.2))]) # total number of training iterations
 lr_decay = 1 # should be ~= max_iters per Chinchilla
@@ -64,7 +65,7 @@ wandb_run_name = 'gpt2' # 'run' + str(time.time())
 # data
 dataset = 'openwebtext'
 
-block_size = 1024
+
 # model
 n_layer = 12
 n_head = 12
@@ -299,7 +300,7 @@ while True:
     time_passed = bef_eval - t_init
     # evaluate the loss on train/val sets and write checkpoints
 
-    if (iter_num % eval_interval == 0 or time_passed - t_init > sec_per_day - 600) and master_process and False:
+    if (iter_num % eval_interval == 0 or time_passed - t_init > sec_per_day - 600) and master_process:
     #if time.time() - t_init > sec_per_day:
         losses = estimate_loss()
         #print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
@@ -367,7 +368,7 @@ while True:
     optimizer.zero_grad(set_to_none=True)
 
     # timing and logging
-    t1 = time.time()
+    """t1 = time.time()
     dt = t1 - t0
     t0 = t1
     if iter_num % log_interval == 0 and master_process:
@@ -377,7 +378,7 @@ while True:
         if local_iter_num >= 5: # let the training loop settle a bit
             mfu = raw_model.estimate_mfu(batch_size * gradient_accumulation_steps, dt)
             running_mfu = mfu if running_mfu == -1.0 else 0.9*running_mfu + 0.1*mfu
-        print(f"iter {iter_num}: loss {lossf:.4f}, time {dt*1000:.2f}ms, mfu {running_mfu*100:.2f}%")
+        print(f"iter {iter_num}: loss {lossf:.4f}, time {dt*1000:.2f}ms, mfu {running_mfu*100:.2f}%")"""
         
     iter_num += 1
     local_iter_num += 1
