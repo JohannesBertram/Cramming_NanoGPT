@@ -30,24 +30,24 @@ from torch.distributed import init_process_group, destroy_process_group
 from model import GPTConfig, GPT
 
 seed = 5
-exp_name = f"BS_512_{seed}"
+exp_name = f"BS_256_{seed}"
 torch.manual_seed(seed)
 #torch.cuda.manual_seed_all(seed)
 sec_per_day = 86400
 
 learning_rate = 6e-4 # max learning rate
 
-gradient_accumulation_steps = 13 # used to simulate larger batch sizes
-batch_size = 12 # if gradient_accumulation_steps > 1, this is the micro-batch size
-block_size = 512
-mean_batch_size = 156
+gradient_accumulation_steps = 6 # used to simulate larger batch sizes
+batch_size = 24 # if gradient_accumulation_steps > 1, this is the micro-batch size
+block_size = 256
+mean_batch_size = 300
 est_sec_per_batch_element = 0.178
 max_iters = np.min([sec_per_day * 2, int(np.round((sec_per_day / (mean_batch_size * est_sec_per_batch_element)) * 1.2))]) # total number of training iterations
 lr_decay = 1 # should be ~= max_iters per Chinchilla
 
 eval_interval = max_iters // 200
 
-
+eval_intervals = np.append(np.arange(0, 86041, 360), np.arange(86340, 86400, 2))
 
 # -----------------------------------------------------------------------------
 # default config values designed to train a gpt2 (124M) on OpenWebText
@@ -97,7 +97,7 @@ config = {k: globals()[k] for k in config_keys} # will be useful for logging
 # -----------------------------------------------------------------------------
 
 # saving training progress
-train_info = np.zeros((4, 2 * (max_iters // eval_interval + 1)))
+train_info = np.zeros((4, len(eval_intervals)))
 
 # various inits, derived attributes, I/O setup
 ddp = int(os.environ.get('RANK', -1)) != -1 # is this a ddp run?
@@ -286,6 +286,7 @@ X, Y = get_batch('train') # fetch the very first batch
 t0 = time.time()
 t_init = t0
 time_passed = 0
+current_eval_num = 0
 local_iter_num = 0 # number of iterations in the lifetime of this process
 raw_model = model.module if ddp else model # unwrap DDP container if needed
 running_mfu = -1.0
@@ -300,11 +301,12 @@ while True:
     time_passed = bef_eval - t_init
     # evaluate the loss on train/val sets and write checkpoints
 
-    if (iter_num % eval_interval == 0 or time_passed - t_init > sec_per_day - 600) and master_process:
+    if (time_passed > eval_intervals[current_eval_num] or time_passed > sec_per_day - 600) and master_process:
     #if time.time() - t_init > sec_per_day:
+        current_eval_num += 1
         losses = estimate_loss()
         #print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
-        train_info[:, iter_num // eval_interval] = np.array([iter_num, time_passed, losses['train'], losses['val']])
+        train_info[:, current_eval_num] = np.array([iter_num, time_passed, losses['train'], losses['val']])
         #print(train_info[:, iter_num // eval_interval])
         
         """if wandb_log:
