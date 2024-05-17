@@ -30,7 +30,7 @@ from torch.distributed import init_process_group, destroy_process_group
 from model import GPTConfig, GPT
 
 seed = 5
-exp_name = f"BS_test_{seed}"
+exp_name = f"BS_512_{seed}"
 torch.manual_seed(seed)
 #torch.cuda.manual_seed_all(seed)
 sec_per_day = 86400
@@ -42,7 +42,7 @@ batch_size = 12 # if gradient_accumulation_steps > 1, this is the micro-batch si
 block_size = 512
 mean_batch_size = 156
 est_sec_per_batch_element = 0.178
-max_iters = np.min([sec_per_day, int(np.round((sec_per_day / (mean_batch_size * est_sec_per_batch_element)) * 1.2))]) # total number of training iterations
+max_iters = np.min([sec_per_day * 2, int(np.round((sec_per_day / (mean_batch_size * est_sec_per_batch_element)) * 1.2))]) # total number of training iterations
 lr_decay = 1 # should be ~= max_iters per Chinchilla
 
 eval_interval = max_iters // 200
@@ -97,7 +97,7 @@ config = {k: globals()[k] for k in config_keys} # will be useful for logging
 # -----------------------------------------------------------------------------
 
 # saving training progress
-train_info = np.zeros((4, max_iters // eval_interval + 1))
+train_info = np.zeros((4, 2 * (max_iters // eval_interval + 1)))
 
 # various inits, derived attributes, I/O setup
 ddp = int(os.environ.get('RANK', -1)) != -1 # is this a ddp run?
