@@ -252,16 +252,16 @@ def estimate_loss():
     out = {}
     model.eval()
     for split in ['train', 'val']:
-        """if split == 'train':
+        if split == 'train':
             out[split] = 0
-        else:"""
-        losses = torch.zeros(eval_iters)
-        for k in range(eval_iters):
-            X, Y = get_batch(split)
-            with ctx:
-                logits, loss = model(X, Y)
-            losses[k] = loss.item()
-        out[split] = losses.mean()
+        else:
+            losses = torch.zeros(eval_iters)
+            for k in range(eval_iters):
+                X, Y = get_batch(split)
+                with ctx:
+                    logits, loss = model(X, Y)
+                losses[k] = loss.item()
+            out[split] = losses.mean()
     model.train()
     return out
 
