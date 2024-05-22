@@ -44,8 +44,8 @@ acc_increase = 1
 acc_warmup = 1/300
 use_acc_scheduler = True
 
-batch_size = 4 # if gradient_accumulation_steps > 1, this is the micro-batch size
-block_size = 1024
+batch_size = 12 # if gradient_accumulation_steps > 1, this is the micro-batch size
+block_size = 512
 mean_batch_size = 300
 est_sec_per_batch_element = 0.178
 max_iters = np.min([sec_per_day * 2, int(np.round((sec_per_day / (mean_batch_size * est_sec_per_batch_element)) * 1.2))]) # total number of training iterations
@@ -54,13 +54,13 @@ lr_decay = 1 # should be ~= max_iters per Chinchilla
 eval_interval = max_iters // 100
 
 eval_intervals = np.append(np.arange(0, sec_per_day - 360, 720), np.arange(sec_per_day - 120, sec_per_day, 10))
-
+print(len(eval_intervals))
 # -----------------------------------------------------------------------------
 # default config values designed to train a gpt2 (124M) on OpenWebText
 # I/O
 out_dir = 'out'
 log_interval = 1
-eval_iters = 200 * round(1024 / block_size)
+eval_iters = 133
 eval_only = False # if True, script exits right after the first eval
 always_save_checkpoint = False # if True, always save a checkpoint after each eval
 init_from = 'scratch' # 'scratch' or 'resume' or 'gpt2*'
