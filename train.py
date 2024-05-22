@@ -33,7 +33,7 @@ seed = 5
 exp_name = f"BS_256_{seed}"
 torch.manual_seed(seed)
 #torch.cuda.manual_seed_all(seed)
-sec_per_day = 86400
+sec_per_day = 79200
 
 learning_rate = 6e-4 # max learning rate
 
@@ -51,16 +51,16 @@ est_sec_per_batch_element = 0.178
 max_iters = np.min([sec_per_day * 2, int(np.round((sec_per_day / (mean_batch_size * est_sec_per_batch_element)) * 1.2))]) # total number of training iterations
 lr_decay = 1 # should be ~= max_iters per Chinchilla
 
-eval_interval = max_iters // 200
+eval_interval = max_iters // 100
 
-eval_intervals = np.append(np.arange(0, 86041, 360), np.arange(86340, 86400, 2))
+eval_intervals = np.append(np.arange(0, sec_per_day - 360, 720), np.arange(sec_per_day - 120, sec_per_day, 10))
 
 # -----------------------------------------------------------------------------
 # default config values designed to train a gpt2 (124M) on OpenWebText
 # I/O
 out_dir = 'out'
 log_interval = 1
-eval_iters = 200 * round(1024 / block_size)
+eval_iters = 100 * round(1024 / block_size)
 eval_only = False # if True, script exits right after the first eval
 always_save_checkpoint = True # if True, always save a checkpoint after each eval
 init_from = 'scratch' # 'scratch' or 'resume' or 'gpt2*'
@@ -252,13 +252,16 @@ def estimate_loss():
     out = {}
     model.eval()
     for split in ['train', 'val']:
-        losses = torch.zeros(eval_iters)
-        for k in range(eval_iters):
-            X, Y = get_batch(split)
-            with ctx:
-                logits, loss = model(X, Y)
-            losses[k] = loss.item()
-        out[split] = losses.mean()
+        if split == 'train':
+            out[split] = 0
+        else:
+            losses = torch.zeros(eval_iters)
+            for k in range(eval_iters):
+                X, Y = get_batch(split)
+                with ctx:
+                    logits, loss = model(X, Y)
+                losses[k] = loss.item()
+            out[split] = losses.mean()
     model.train()
     return out
 
@@ -365,6 +368,7 @@ while True:
 
     # offsetting t_init such that the eval time does not count towards the 1 day limit
     t_eval = time.time() - bef_eval
+    print(t_eval)
     t_init += t_eval
 
     if iter_num == 0 and eval_only:
@@ -397,7 +401,7 @@ while True:
     optimizer.zero_grad(set_to_none=True)
 
     # timing and logging
-    """t1 = time.time()
+    t1 = time.time()
     dt = t1 - t0
     t0 = t1
     if iter_num % log_interval == 0 and master_process:
@@ -407,7 +411,7 @@ while True:
         if local_iter_num >= 5: # let the training loop settle a bit
             mfu = raw_model.estimate_mfu(batch_size * gradient_accumulation_steps, dt)
             running_mfu = mfu if running_mfu == -1.0 else 0.9*running_mfu + 0.1*mfu
-        print(f"iter {iter_num}: loss {lossf:.4f}, time {dt*1000:.2f}ms, mfu {running_mfu*100:.2f}%")"""
+        print(f"iter {iter_num}: loss {lossf:.4f}, time {dt*1000:.2f}ms, mfu {running_mfu*100:.2f}%")
         
     iter_num += 1
     local_iter_num += 1
