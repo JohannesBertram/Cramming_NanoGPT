@@ -38,6 +38,12 @@ sec_per_day = 86400
 learning_rate = 6e-4 # max learning rate
 
 gradient_accumulation_steps = 6 # used to simulate larger batch sizes
+min_acc = 1
+max_acc = 1
+acc_increase = 1
+acc_warmup = 1/300
+use_acc_scheduler = True
+
 batch_size = 24 # if gradient_accumulation_steps > 1, this is the micro-batch size
 block_size = 256
 mean_batch_size = 300
@@ -54,7 +60,7 @@ eval_intervals = np.append(np.arange(0, 86041, 360), np.arange(86340, 86400, 2))
 # I/O
 out_dir = 'out'
 log_interval = 1
-eval_iters = 200
+eval_iters = 200 * round(1024 / block_size)
 eval_only = False # if True, script exits right after the first eval
 always_save_checkpoint = True # if True, always save a checkpoint after each eval
 init_from = 'scratch' # 'scratch' or 'resume' or 'gpt2*'
@@ -96,9 +102,6 @@ exec(open('configurator.py').read()) # overrides from command line or config fil
 config = {k: globals()[k] for k in config_keys} # will be useful for logging
 # -----------------------------------------------------------------------------
 
-# saving training progress
-train_info = np.zeros((4, len(eval_intervals)))
-
 # various inits, derived attributes, I/O setup
 ddp = int(os.environ.get('RANK', -1)) != -1 # is this a ddp run?
 if False:
@@ -119,8 +122,14 @@ else:
     master_process = True
     seed_offset = 0
     ddp_world_size = 1
-tokens_per_iter = gradient_accumulation_steps * ddp_world_size * batch_size * block_size
-print(f"tokens per iteration will be: {tokens_per_iter:,}")
+if use_acc_scheduler:
+    min_tokens_per_iter = min_acc * ddp_world_size * batch_size * block_size
+    print(f"min tokens per iteration will be: {min_tokens_per_iter:,}")
+    max_tokens_per_iter = max_acc * ddp_world_size * batch_size * block_size
+    print(f"min tokens per iteration will be: {max_tokens_per_iter:,}")
+else:
+    tokens_per_iter = gradient_accumulation_steps * ddp_world_size * batch_size * block_size
+    print(f"tokens per iteration will be: {tokens_per_iter:,}")
 
 if master_process:
     os.makedirs(out_dir, exist_ok=True)
@@ -141,6 +150,11 @@ def get_batch(split):
         data = np.memmap(os.path.join(data_dir, 'train.bin'), dtype=np.uint16, mode='r')
     else:
         data = np.memmap(os.path.join(data_dir, 'val.bin'), dtype=np.uint16, mode='r')
+    """"ix = torch.randint(len(data) - 1024, (4,))
+    assert 1024 % block_size == 0
+    #for i in range(1024 // block_size):
+    x = torch.cat([torch.stack([torch.from_numpy((data[i+j*block_size:i+j*block_size+block_size]).astype(np.int64)) for i in ix]) for j in range(1024 // block_size)])
+    y = torch.cat([torch.stack([torch.from_numpy((data[i+1+j*block_size:i+1+j*block_size+block_size]).astype(np.int64)) for i in ix]) for j in range(1024 // block_size)])"""
     ix = torch.randint(len(data) - block_size, (batch_size,))
     x = torch.stack([torch.from_numpy((data[i:i+block_size]).astype(np.int64)) for i in ix])
     y = torch.stack([torch.from_numpy((data[i+1:i+1+block_size]).astype(np.int64)) for i in ix])
@@ -276,10 +290,21 @@ def get_lr_timed(tp):
     coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio)) # coeff ranges 0..1
     return min_lr + coeff * (learning_rate - min_lr)
 
+# Batch size (i.e. accumulation steps) scheduler
+def get_acc_timed(tp):
+    if tp / sec_per_day < acc_warmup:
+        return min_acc
+    ratio = (tp / sec_per_day - acc_warmup) / (acc_increase - acc_warmup)
+    assert 0 <= ratio <= 1
+    return int(np.ceil(min_acc + ratio * (max_acc - min_acc)))
+
 # logging
 if wandb_log and master_process:
     import wandb
     wandb.init(project=wandb_project, name=wandb_run_name, config=config)
+
+# saving training progress
+train_info = np.zeros((6, len(eval_intervals)))
 
 # training loop
 X, Y = get_batch('train') # fetch the very first batch
@@ -293,9 +318,11 @@ running_mfu = -1.0
 while True:
 
     # determine and set the learning rate for this iteration
-    lr = get_lr_timed(iter_num) if decay_lr else learning_rate
+    lr = get_lr_timed(time_passed) if decay_lr else learning_rate
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
+
+    gradient_accumulation_steps = get_acc_timed(time_passed) if use_acc_scheduler else gradient_accumulation_steps
 
     bef_eval = time.time()
     time_passed = bef_eval - t_init
@@ -306,7 +333,7 @@ while True:
         current_eval_num += 1
         losses = estimate_loss()
         #print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
-        train_info[:, current_eval_num] = np.array([iter_num, time_passed, losses['train'], losses['val']])
+        train_info[:, current_eval_num] = np.array([iter_num, time_passed, lr, gradient_accumulation_steps, losses['train'], losses['val']])
         #print(train_info[:, iter_num // eval_interval])
         
         """if wandb_log:
