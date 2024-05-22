@@ -30,7 +30,7 @@ from torch.distributed import init_process_group, destroy_process_group
 from model import GPTConfig, GPT
 
 seed = 5
-exp_name = f"BS_256_{seed}"
+exp_name = f"512_{seed}"
 torch.manual_seed(seed)
 #torch.cuda.manual_seed_all(seed)
 sec_per_day = 79200
@@ -60,7 +60,7 @@ print(len(eval_intervals))
 # I/O
 out_dir = 'out'
 log_interval = 1
-eval_iters = 133
+eval_iters = 100
 eval_only = False # if True, script exits right after the first eval
 always_save_checkpoint = False # if True, always save a checkpoint after each eval
 init_from = 'scratch' # 'scratch' or 'resume' or 'gpt2*'
@@ -360,7 +360,7 @@ while True:
                 }
                 print(f"saving checkpoint to {out_dir}")
                 torch.save(checkpoint, os.path.join(out_dir, f'ckpt_{exp_name}.pt'))
-        np.save(f"log_{exp_name}.npy", train_info)
+        np.save(f"{exp_name}.npy", train_info)
 
     # breaking condition
     if time_passed > sec_per_day:
