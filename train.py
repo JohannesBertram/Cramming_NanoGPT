@@ -44,8 +44,8 @@ acc_increase = 1
 acc_warmup = 1/300
 use_acc_scheduler = True
 
-batch_size = 24 # if gradient_accumulation_steps > 1, this is the micro-batch size
-block_size = 256
+batch_size = 4 # if gradient_accumulation_steps > 1, this is the micro-batch size
+block_size = 1024
 mean_batch_size = 300
 est_sec_per_batch_element = 0.178
 max_iters = np.min([sec_per_day * 2, int(np.round((sec_per_day / (mean_batch_size * est_sec_per_batch_element)) * 1.2))]) # total number of training iterations
@@ -60,9 +60,9 @@ eval_intervals = np.append(np.arange(0, sec_per_day - 360, 720), np.arange(sec_p
 # I/O
 out_dir = 'out'
 log_interval = 1
-eval_iters = 100 * round(1024 / block_size)
+eval_iters = 200 * round(1024 / block_size)
 eval_only = False # if True, script exits right after the first eval
-always_save_checkpoint = True # if True, always save a checkpoint after each eval
+always_save_checkpoint = False # if True, always save a checkpoint after each eval
 init_from = 'scratch' # 'scratch' or 'resume' or 'gpt2*'
 # wandb logging
 wandb_log = False # disabled by default
@@ -331,7 +331,7 @@ while True:
     time_passed = bef_eval - t_init
     # evaluate the loss on train/val sets and write checkpoints
 
-    if (time_passed > eval_intervals[current_eval_num] or time_passed > sec_per_day - 600) and master_process:
+    if (time_passed > eval_intervals[current_eval_num] or time_passed > sec_per_day) and master_process:
     #if time.time() - t_init > sec_per_day:
         current_eval_num += 1
         losses = estimate_loss()
