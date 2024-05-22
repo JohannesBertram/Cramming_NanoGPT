@@ -126,7 +126,7 @@ if use_acc_scheduler:
     min_tokens_per_iter = min_acc * ddp_world_size * batch_size * block_size
     print(f"min tokens per iteration will be: {min_tokens_per_iter:,}")
     max_tokens_per_iter = max_acc * ddp_world_size * batch_size * block_size
-    print(f"min tokens per iteration will be: {max_tokens_per_iter:,}")
+    print(f"max tokens per iteration will be: {max_tokens_per_iter:,}")
 else:
     tokens_per_iter = gradient_accumulation_steps * ddp_world_size * batch_size * block_size
     print(f"tokens per iteration will be: {tokens_per_iter:,}")
@@ -252,16 +252,16 @@ def estimate_loss():
     out = {}
     model.eval()
     for split in ['train', 'val']:
-        if split == 'train':
+        """if split == 'train':
             out[split] = 0
-        else:
-            losses = torch.zeros(eval_iters)
-            for k in range(eval_iters):
-                X, Y = get_batch(split)
-                with ctx:
-                    logits, loss = model(X, Y)
-                losses[k] = loss.item()
-            out[split] = losses.mean()
+        else:"""
+        losses = torch.zeros(eval_iters)
+        for k in range(eval_iters):
+            X, Y = get_batch(split)
+            with ctx:
+                logits, loss = model(X, Y)
+            losses[k] = loss.item()
+        out[split] = losses.mean()
     model.train()
     return out
 
