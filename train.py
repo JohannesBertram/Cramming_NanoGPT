@@ -30,31 +30,33 @@ from torch.distributed import init_process_group, destroy_process_group
 from model import GPTConfig, GPT
 
 seed = 5
-exp_name = f"512_{seed}"
+
 torch.manual_seed(seed)
 #torch.cuda.manual_seed_all(seed)
 sec_per_day = 79200
 
 learning_rate = 6e-4 # max learning rate
 
-gradient_accumulation_steps = 6 # used to simulate larger batch sizes
+gradient_accumulation_steps = 8*5*8 # used to simulate larger batch sizes
 min_acc = 1
 max_acc = 1
 acc_increase = 1
 acc_warmup = 1/300
-use_acc_scheduler = True
+use_acc_scheduler = False
 
-batch_size = 12 # if gradient_accumulation_steps > 1, this is the micro-batch size
-block_size = 512
-mean_batch_size = 300
-est_sec_per_batch_element = 0.178
-max_iters = np.min([sec_per_day * 2, int(np.round((sec_per_day / (mean_batch_size * est_sec_per_batch_element)) * 1.2))]) # total number of training iterations
+batch_size = 4 # if gradient_accumulation_steps > 1, this is the micro-batch size
+block_size = 1024
+#mean_batch_size = 300
+#est_sec_per_batch_element = 0.178
+#max_iters = np.min([sec_per_day * 2, int(np.round((sec_per_day / (mean_batch_size * est_sec_per_batch_element)) * 1.2))]) # total number of training iterations
 lr_decay = 1 # should be ~= max_iters per Chinchilla
 
-eval_interval = max_iters // 100
+#eval_interval = max_iters // 100
 
 eval_intervals = np.append(np.arange(0, sec_per_day - 360, 720), np.arange(sec_per_day - 120, sec_per_day, 10))
 print(len(eval_intervals))
+
+exp_name = f"res_{gradient_accumulation_steps}_{batch_size}_{block_size}_{seed}"
 # -----------------------------------------------------------------------------
 # default config values designed to train a gpt2 (124M) on OpenWebText
 # I/O
@@ -307,7 +309,7 @@ if wandb_log and master_process:
     wandb.init(project=wandb_project, name=wandb_run_name, config=config)
 
 # saving training progress
-train_info = np.zeros((6, len(eval_intervals)))
+train_info = np.zeros((6, len(eval_intervals)+1))
 
 # training loop
 X, Y = get_batch('train') # fetch the very first batch
@@ -336,7 +338,7 @@ while True:
         current_eval_num += 1
         losses = estimate_loss()
         #print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
-        train_info[:, current_eval_num] = np.array([iter_num, time_passed, lr, gradient_accumulation_steps, losses['train'], losses['val']])
+        train_info[:, current_eval_num-1] = np.array([iter_num, time_passed, lr, gradient_accumulation_steps, losses['train'], losses['val']])
         #print(train_info[:, iter_num // eval_interval])
         
         """if wandb_log:
