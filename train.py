@@ -29,7 +29,7 @@ from torch.distributed import init_process_group, destroy_process_group
 
 from model import GPTConfig, GPT
 
-seed = 6
+seed = 1
 
 torch.manual_seed(seed)
 #torch.cuda.manual_seed_all(seed)
@@ -38,11 +38,11 @@ sec_per_day = 79200
 learning_rate = 6e-4 # max learning rate
 
 gradient_accumulation_steps = 8*5*8 # used to simulate larger batch sizes
-min_acc = 1
-max_acc = 1
+min_acc = 8*5*8
+max_acc = 8*5*8
 acc_increase = 1
-acc_warmup = 1/300
-use_acc_scheduler = False
+acc_warmup = 0
+use_acc_scheduler = True
 
 batch_size = 12 # if gradient_accumulation_steps > 1, this is the micro-batch size
 block_size = 512
@@ -56,7 +56,7 @@ lr_decay = 1 # should be ~= max_iters per Chinchilla
 eval_intervals = np.append(np.arange(0, sec_per_day - 360, 720), np.arange(sec_per_day - 120, sec_per_day, 10))
 print(len(eval_intervals))
 
-exp_name = f"res_{gradient_accumulation_steps}_{batch_size}_{block_size}_{seed}"
+exp_name = f"res_{min_acc}_{max_acc}_{acc_warmup}_{batch_size}_{block_size}_{seed}"
 # -----------------------------------------------------------------------------
 # default config values designed to train a gpt2 (124M) on OpenWebText
 # I/O
@@ -150,14 +150,16 @@ def get_batch(split):
     # https://stackoverflow.com/questions/45132940/numpy-memmap-memory-usage-want-to-iterate-once/61472122#61472122
     if split == 'train':
         data = np.memmap(os.path.join(data_dir, 'train.bin'), dtype=np.uint16, mode='r')
+        ix = torch.randint(len(data) - 1024, (batch_size,))
     else:
         data = np.memmap(os.path.join(data_dir, 'val.bin'), dtype=np.uint16, mode='r')
+        ix = torch.randint(len(data) - 1024, (4,))
     """"ix = torch.randint(len(data) - 1024, (4,))
     assert 1024 % block_size == 0
     #for i in range(1024 // block_size):
     x = torch.cat([torch.stack([torch.from_numpy((data[i+j*block_size:i+j*block_size+block_size]).astype(np.int64)) for i in ix]) for j in range(1024 // block_size)])
     y = torch.cat([torch.stack([torch.from_numpy((data[i+1+j*block_size:i+1+j*block_size+block_size]).astype(np.int64)) for i in ix]) for j in range(1024 // block_size)])"""
-    ix = torch.randint(len(data) - block_size, (batch_size,))
+    
     x = torch.stack([torch.from_numpy((data[i:i+block_size]).astype(np.int64)) for i in ix])
     y = torch.stack([torch.from_numpy((data[i+1:i+1+block_size]).astype(np.int64)) for i in ix])
     if device_type == 'cuda':
