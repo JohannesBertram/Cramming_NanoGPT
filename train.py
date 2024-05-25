@@ -38,8 +38,8 @@ sec_per_day = 79200
 learning_rate = 6e-4 # max learning rate
 
 gradient_accumulation_steps = 8*5*8 # used to simulate larger batch sizes
-min_acc = 1
-max_acc = 1
+min_acc = 8*5*8
+max_acc = 8*5*8
 acc_increase = 1
 acc_warmup = 0
 use_acc_scheduler = True
@@ -56,7 +56,7 @@ lr_decay = 1 # should be ~= max_iters per Chinchilla
 eval_intervals = np.append(np.arange(0, sec_per_day - 360, 720), np.arange(sec_per_day - 120, sec_per_day, 10))
 print(len(eval_intervals))
 
-exp_name = f"res_{min_acc}_{max_acc}_{acc_warmup}_{batch_size}_{block_size}_{seed}"
+exp_name = f"res_{min_acc}_{max_acc}_{acc_warmup}_{batch_size}_{block_size}_{learning_rate}_{seed}"
 # -----------------------------------------------------------------------------
 # default config values designed to train a gpt2 (124M) on OpenWebText
 # I/O
@@ -311,7 +311,7 @@ if wandb_log and master_process:
     wandb.init(project=wandb_project, name=wandb_run_name, config=config)
 
 # saving training progress
-train_info = np.zeros((6, len(eval_intervals)+1))
+train_info = torch.zeros((6, len(eval_intervals) + 1))
 
 # training loop
 X, Y = get_batch('train') # fetch the very first batch
@@ -340,7 +340,7 @@ while True:
         current_eval_num += 1
         losses = estimate_loss()
         #print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
-        train_info[:, current_eval_num-1] = np.array([iter_num, time_passed, lr, gradient_accumulation_steps, losses['train'], losses['val']])
+        train_info[:, current_eval_num - 1] = torch.tensor([iter_num, time_passed, lr, gradient_accumulation_steps, losses['train'], losses['val']])
         #print(train_info[:, iter_num // eval_interval])
         
         """if wandb_log:
@@ -365,7 +365,7 @@ while True:
                 print(f"saving checkpoint to {out_dir}")
                 torch.save(checkpoint, os.path.join(out_dir, f'ckpt_{exp_name}.pt'))
         print("save")
-        np.save(f"{exp_name}.npy", train_info)
+        torch.save(train_info, f"{exp_name}.pt")
 
     # breaking condition
     if time_passed > sec_per_day:
