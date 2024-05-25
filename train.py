@@ -35,7 +35,7 @@ torch.manual_seed(seed)
 #torch.cuda.manual_seed_all(seed)
 sec_per_day = 79200
 
-learning_rate = 1e-3 # max learning rate
+learning_rate = 1e-4 # max learning rate
 
 gradient_accumulation_steps = 8*5*8 # used to simulate larger batch sizes
 min_acc = 8*5*8
