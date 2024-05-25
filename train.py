@@ -35,7 +35,7 @@ torch.manual_seed(seed)
 #torch.cuda.manual_seed_all(seed)
 sec_per_day = 79200
 
-learning_rate = 6e-4 # max learning rate
+learning_rate = 1e-4 # max learning rate
 
 gradient_accumulation_steps = 8*5*8 # used to simulate larger batch sizes
 min_acc = 8*5*8
@@ -44,8 +44,8 @@ acc_increase = 1
 acc_warmup = 0
 use_acc_scheduler = True
 
-batch_size = 12 # if gradient_accumulation_steps > 1, this is the micro-batch size
-block_size = 512
+batch_size = 4 # if gradient_accumulation_steps > 1, this is the micro-batch size
+block_size = 1024
 #mean_batch_size = 300
 #est_sec_per_batch_element = 0.178
 #max_iters = np.min([sec_per_day * 2, int(np.round((sec_per_day / (mean_batch_size * est_sec_per_batch_element)) * 1.2))]) # total number of training iterations
