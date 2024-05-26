@@ -38,7 +38,7 @@ sec_per_day = 79200
 learning_rate = 6e-4 # max learning rate
 
 gradient_accumulation_steps = 8*5*8 # used to simulate larger batch sizes
-min_acc = 1
+min_acc = 32
 max_acc = 32
 acc_increase = 1
 acc_warmup = 0
