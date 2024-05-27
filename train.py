@@ -38,8 +38,8 @@ sec_per_day = 79200
 learning_rate = 6e-4 # max learning rate
 
 gradient_accumulation_steps = 8*5*8 # used to simulate larger batch sizes
-min_acc = 1
-max_acc = 128
+min_acc = 1 # min accumuluation steps at start of batch_size schedule
+max_acc = 32
 acc_increase = 1
 acc_warmup = 0
 use_acc_scheduler = True
@@ -323,6 +323,8 @@ local_iter_num = 0 # number of iterations in the lifetime of this process
 raw_model = model.module if ddp else model # unwrap DDP container if needed
 running_mfu = -1.0
 while True:
+    if time_passed > 720 and not os.path.isfile(f"{exp_name}.pt"):
+        break
 
     # determine and set the learning rate for this iteration
     lr = get_lr_timed(time_passed) if decay_lr else learning_rate
