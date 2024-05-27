@@ -5,7 +5,7 @@
 #SBATCH --job-name=nanoGPT
 #SBATCH --cpus-per-task=1
 #SBATCH --partition=day
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:4
 #SBATCH --mem-per-cpu=150
 #SBATCH --time=1440:00
 #SBATCH --error=job.%J.err
