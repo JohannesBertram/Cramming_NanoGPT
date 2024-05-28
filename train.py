@@ -38,8 +38,8 @@ sec_per_day = 79200
 learning_rate = 6e-4 # max learning rate
 
 gradient_accumulation_steps = 8*5*8 # used to simulate larger batch sizes
-min_acc = 32 # min accumuluation steps at start of batch_size schedule
-max_acc = 32
+min_acc = 1 # min accumuluation steps at start of batch_size schedule
+max_acc = 1
 acc_increase = 1
 acc_warmup = 0
 use_acc_scheduler = True
@@ -57,6 +57,11 @@ eval_intervals = np.append(np.arange(0, sec_per_day - 360, 720), np.arange(sec_p
 print(len(eval_intervals))
 
 exp_name = f"res_{min_acc}_{max_acc}_{acc_warmup}_{batch_size}_{block_size}_{learning_rate}_{seed}"
+
+# saving training progress
+train_info = torch.zeros((6, len(eval_intervals) + 1))
+torch.save(train_info, f"{exp_name}.pt")
+
 # -----------------------------------------------------------------------------
 # default config values designed to train a gpt2 (124M) on OpenWebText
 # I/O
@@ -309,9 +314,6 @@ def get_acc_timed(tp):
 if wandb_log and master_process:
     import wandb
     wandb.init(project=wandb_project, name=wandb_run_name, config=config)
-
-# saving training progress
-train_info = torch.zeros((6, len(eval_intervals) + 1))
 
 # training loop
 X, Y = get_batch('train') # fetch the very first batch
