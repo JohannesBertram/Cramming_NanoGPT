@@ -40,8 +40,8 @@ learning_rate = 6e-4 # max learning rate
 gradient_accumulation_steps = 8*5*8 # used to simulate larger batch sizes
 min_acc = 1 # min accumuluation steps at start of batch_size schedule
 max_acc = 32
-acc_increase = 1
-acc_warmup = 0.5
+acc_increase = 0.25
+acc_warmup = 0
 use_acc_scheduler = True
 
 batch_size = 4 # if gradient_accumulation_steps > 1, this is the micro-batch size
@@ -56,7 +56,7 @@ lr_decay = 1 # should be ~= max_iters per Chinchilla
 eval_intervals = np.append(np.arange(0, sec_per_day - 360, 720), np.arange(sec_per_day - 120, sec_per_day, 10))
 print(len(eval_intervals))
 
-exp_name = f"res_{min_acc}_{max_acc}_{acc_warmup}_{batch_size}_{block_size}_{learning_rate}_{seed}"
+exp_name = f"res_{min_acc}_{max_acc}_{acc_warmup}_{acc_increase}_{batch_size}_{block_size}_{learning_rate}_{seed}"
 
 # saving training progress
 train_info = torch.zeros((6, len(eval_intervals) + 1))
@@ -306,6 +306,8 @@ def get_lr_timed(tp):
 def get_acc_timed(tp):
     if tp / sec_per_day < acc_warmup:
         return min_acc
+    if tp / sec_per_day > acc_increase:
+        return max_acc
     ratio = (tp / sec_per_day - acc_warmup) / (acc_increase - acc_warmup)
     assert 0 <= ratio <= 1
     return int(np.ceil(min_acc + ratio * (max_acc - min_acc)))
