@@ -1,27 +1,8 @@
-"""
-This training script can be run both on a single gpu in debug mode,
-and also in a larger training run with distributed data parallel (ddp).
-
-To run on a single GPU, example:
-$ python train.py --batch_size=32 --compile=False
-
-To run with DDP on 4 gpus on 1 node, example:
-$ torchrun --standalone --nproc_per_node=4 train.py
-
-To run with DDP on 4 gpus across 2 nodes, example:
-- Run on the first (master) node with example IP 123.456.123.456:
-$ torchrun --nproc_per_node=8 --nnodes=2 --node_rank=0 --master_addr=123.456.123.456 --master_port=1234 train.py
-- Run on the worker node:
-$ torchrun --nproc_per_node=8 --nnodes=2 --node_rank=1 --master_addr=123.456.123.456 --master_port=1234 train.py
-(If your cluster does not have Infiniband interconnect prepend NCCL_IB_DISABLE=1)
-"""
-
 import os
 import time
 import math
 import pickle
 from contextlib import nullcontext
-import tiktoken
 
 import numpy as np
 import torch
@@ -30,83 +11,54 @@ from torch.distributed import init_process_group, destroy_process_group
 
 from model import GPTConfig, GPT
 
-output_type = "res"
-seed = 5
-
-torch.manual_seed(seed)
-#torch.cuda.manual_seed_all(seed)
-sec_per_day = 79200
-
-learning_rate = 6e-4 # max learning rate
-
-gradient_accumulation_steps = 8*5*8 # used to simulate larger batch sizes
-min_acc = 1 # min accumuluation steps at start of batch_size schedule
-max_acc = 32
-acc_increase = 1
-acc_warmup = 0
-use_acc_scheduler = True
-
-batch_size = 4 # if gradient_accumulation_steps > 1, this is the micro-batch size
-block_size = 1024
-#mean_batch_size = 300
-#est_sec_per_batch_element = 0.178
-#max_iters = np.min([sec_per_day * 2, int(np.round((sec_per_day / (mean_batch_size * est_sec_per_batch_element)) * 1.2))]) # total number of training iterations
-lr_decay = 1 # should be ~= max_iters per Chinchilla
-
-#eval_interval = max_iters // 100
-
-eval_intervals = np.append(np.arange(0, sec_per_day - 360, 720), np.arange(sec_per_day - 120, sec_per_day, 10))
-print(len(eval_intervals))
-
-optimizer_type = "Sophia"
-
-exp_name = f"{output_type}_{optimizer_type}_{min_acc}_{max_acc}_{acc_warmup}_{acc_increase}_{batch_size}_{block_size}_{learning_rate}_{seed}"
-
-# saving training progress
-train_info = torch.zeros((6, len(eval_intervals) + 1))
-torch.save(train_info, f"{exp_name}.pt")
-
 # -----------------------------------------------------------------------------
 # default config values designed to train a gpt2 (124M) on OpenWebText
 # I/O
 out_dir = 'out'
+eval_interval = 2000
 log_interval = 1
-eval_iters = 100
+eval_iters = 200
 eval_only = False # if True, script exits right after the first eval
-always_save_checkpoint = False # if True, always save a checkpoint after each eval
-init_from = 'resume' # 'scratch' or 'resume' or 'gpt2*'
+always_save_checkpoint = True # if True, always save a checkpoint after each eval
+init_from = 'scratch' # 'scratch' or 'resume' or 'gpt2*'
 # wandb logging
 wandb_log = False # disabled by default
 wandb_project = 'owt'
 wandb_run_name = 'gpt2' # 'run' + str(time.time())
 # data
 dataset = 'openwebtext'
-
-
+gradient_accumulation_steps = 5 # used to simulate larger batch sizes
+batch_size = 12 # if gradient_accumulation_steps > 1, this is the micro-batch size
+block_size = 1024
 # model
 n_layer = 12
 n_head = 12
 n_embd = 768
 dropout = 0.0 # for pretraining 0 is good, for finetuning try 0.1+
 bias = False # do we use bias inside LayerNorm and Linear layers?
-# adamw optimizer
-
-
-weight_decay = 1e-1 if optimizer_type == "AdamW" else 2e-2
+# optimizer
+optimizer_name = 'adamw' 
+learning_rate = 6e-4 # max learning rate
+max_iters = 600000 # total number of training iterations
+weight_decay = 1e-1
 beta1 = 0.9
 beta2 = 0.95
 grad_clip = 1.0 # clip gradients at this value, or disable if == 0.0
+rho = 0.1
+interval = 10
+variant = 4 
 # learning rate decay settings
 decay_lr = True # whether to decay the learning rate
-warmup = 1/300 # how many steps to warm up for
+warmup_iters = 2000 # how many steps to warm up for
+lr_decay_iters = 600000 # should be ~= max_iters per Chinchilla
 min_lr = 6e-5 # minimum learning rate, should be ~= learning_rate/10 per Chinchilla
 # DDP settings
 backend = 'nccl' # 'nccl', 'gloo', etc.
 # system
 device = 'cuda' # examples: 'cpu', 'cuda', 'cuda:0', 'cuda:1' etc., or try 'mps' on macbooks
-dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16' # 'float32', 'bfloat16', or 'float16', the latter will auto implement a GradScaler
-print(dtype)
-compile = False # use PyTorch 2.0 to compile the model to be faster
+dtype = 'bfloat16' # 'float32', 'bfloat16', or 'float16', the latter will auto implement a GradScaler
+compile = True # use PyTorch 2.0 to compile the model to be faster
+scale_attn_by_inverse_layer_idx = True
 # -----------------------------------------------------------------------------
 config_keys = [k for k,v in globals().items() if not k.startswith('_') and isinstance(v, (int, float, bool, str))]
 exec(open('configurator.py').read()) # overrides from command line or config file
@@ -115,60 +67,37 @@ config = {k: globals()[k] for k in config_keys} # will be useful for logging
 
 # various inits, derived attributes, I/O setup
 ddp = int(os.environ.get('RANK', -1)) != -1 # is this a ddp run?
-if False:
+if ddp:
     init_process_group(backend=backend)
     ddp_rank = int(os.environ['RANK'])
     ddp_local_rank = int(os.environ['LOCAL_RANK'])
-    ddp_world_size = int(os.environ['WORLD_SIZE'])
     device = f'cuda:{ddp_local_rank}'
     torch.cuda.set_device(device)
     master_process = ddp_rank == 0 # this process will do logging, checkpointing etc.
     seed_offset = ddp_rank # each process gets a different seed
-    # world_size number of processes will be training simultaneously, so we can scale
-    # down the desired gradient accumulation iterations per process proportionally
-    assert gradient_accumulation_steps % ddp_world_size == 0
-    gradient_accumulation_steps //= ddp_world_size
 else:
     # if not ddp, we are running on a single gpu, and one process
     master_process = True
     seed_offset = 0
-    ddp_world_size = 1
-if use_acc_scheduler:
-    min_tokens_per_iter = min_acc * ddp_world_size * batch_size * block_size
-    print(f"min tokens per iteration will be: {min_tokens_per_iter:,}")
-    max_tokens_per_iter = max_acc * ddp_world_size * batch_size * block_size
-    print(f"max tokens per iteration will be: {max_tokens_per_iter:,}")
-else:
-    tokens_per_iter = gradient_accumulation_steps * ddp_world_size * batch_size * block_size
-    print(f"tokens per iteration will be: {tokens_per_iter:,}")
+    gradient_accumulation_steps *= 8 # simulate 8 gpus
 
 if master_process:
     os.makedirs(out_dir, exist_ok=True)
-#torch.manual_seed(1337 + seed_offset)
+torch.manual_seed(5000 + seed_offset)
 torch.backends.cuda.matmul.allow_tf32 = True # allow tf32 on matmul
 torch.backends.cudnn.allow_tf32 = True # allow tf32 on cudnn
 device_type = 'cuda' if 'cuda' in device else 'cpu' # for later use in torch.autocast
 # note: float16 data type will automatically use a GradScaler
 ptdtype = {'float32': torch.float32, 'bfloat16': torch.bfloat16, 'float16': torch.float16}[dtype]
-ctx = nullcontext() if device_type == 'cpu' else torch.amp.autocast(device_type=device_type, dtype=ptdtype)
+ctx = nullcontext() if device_type == 'cpu' else torch.autocast(device_type=device_type, dtype=ptdtype)
 
 # poor man's data loader
 data_dir = os.path.join('data', dataset)
+train_data = np.memmap(os.path.join(data_dir, 'train.bin'), dtype=np.uint16, mode='r')
+val_data = np.memmap(os.path.join(data_dir, 'val.bin'), dtype=np.uint16, mode='r')
 def get_batch(split):
-    # We recreate np.memmap every batch to avoid a memory leak, as per
-    # https://stackoverflow.com/questions/45132940/numpy-memmap-memory-usage-want-to-iterate-once/61472122#61472122
-    if split == 'train':
-        data = np.memmap(os.path.join(data_dir, 'train.bin'), dtype=np.uint16, mode='r')
-        ix = torch.randint(len(data) - 1024, (batch_size,))
-    else:
-        data = np.memmap(os.path.join(data_dir, 'val.bin'), dtype=np.uint16, mode='r')
-        ix = torch.randint(len(data) - 1024, (4,))
-    """"ix = torch.randint(len(data) - 1024, (4,))
-    assert 1024 % block_size == 0
-    #for i in range(1024 // block_size):
-    x = torch.cat([torch.stack([torch.from_numpy((data[i+j*block_size:i+j*block_size+block_size]).astype(np.int64)) for i in ix]) for j in range(1024 // block_size)])
-    y = torch.cat([torch.stack([torch.from_numpy((data[i+1+j*block_size:i+1+j*block_size+block_size]).astype(np.int64)) for i in ix]) for j in range(1024 // block_size)])"""
-    
+    data = train_data if split == 'train' else val_data
+    ix = torch.randint(len(data) - block_size, (batch_size,))
     x = torch.stack([torch.from_numpy((data[i:i+block_size]).astype(np.int64)) for i in ix])
     y = torch.stack([torch.from_numpy((data[i+1:i+1+block_size]).astype(np.int64)) for i in ix])
     if device_type == 'cuda':
@@ -193,7 +122,7 @@ if os.path.exists(meta_path):
 
 # model init
 model_args = dict(n_layer=n_layer, n_head=n_head, n_embd=n_embd, block_size=block_size,
-                  bias=bias, vocab_size=None, dropout=dropout) # start with model_args from command line
+                  bias=bias, vocab_size=None, dropout=dropout, scale_attn_by_inverse_layer_idx=scale_attn_by_inverse_layer_idx) # start with model_args from command line
 if init_from == 'scratch':
     # init a new model from scratch
     print("Initializing a new model from scratch")
@@ -206,7 +135,7 @@ if init_from == 'scratch':
 elif init_from == 'resume':
     print(f"Resuming training from {out_dir}")
     # resume training from a checkpoint.
-    ckpt_path = os.path.join(out_dir, f'ckpt_{exp_name}.pt')
+    ckpt_path = os.path.join(out_dir, 'ckpt.pt')
     checkpoint = torch.load(ckpt_path, map_location=device)
     checkpoint_model_args = checkpoint['model_args']
     # force these config attributes to be equal otherwise we can't even resume training
@@ -244,11 +173,11 @@ model.to(device)
 scaler = torch.cuda.amp.GradScaler(enabled=(dtype == 'float16'))
 
 # optimizer
-optimizer = model.configure_optimizers(weight_decay, learning_rate, (beta1, beta2), device_type, optimizer_type)
+optimizer = model.configure_optimizers(optimizer_name, weight_decay, learning_rate, (beta1, beta2), rho, device_type)
 if init_from == 'resume':
     optimizer.load_state_dict(checkpoint['optimizer'])
-checkpoint = None # free up memory
-
+    del state_dict
+    del checkpoint
 # compile the model
 if compile:
     print("compiling the model... (takes a ~minute)")
@@ -265,56 +194,29 @@ def estimate_loss():
     out = {}
     model.eval()
     for split in ['train', 'val']:
-        if split == 'train':
-            out[split] = 0
-        else:
-            losses = torch.zeros(eval_iters)
-            for k in range(eval_iters):
-                X, Y = get_batch(split)
-                with ctx:
-                    logits, loss = model(X, Y)
-                losses[k] = loss.item()
-            out[split] = losses.mean()
+        losses = torch.zeros(eval_iters)
+        for k in range(eval_iters):
+            X, Y = get_batch(split)
+            with ctx:
+                logits, loss = model(X, Y)
+            losses[k] = loss.item()
+        out[split] = losses.mean()
     model.train()
     return out
 
 # learning rate decay scheduler (cosine with warmup)
 def get_lr(it):
-    # 1) linear warmup for warmup steps
-    if it < warmup:
-        return learning_rate * it / warmup
-    # 2) if it > lr_decay, return min learning rate
-    if it > lr_decay:
+    # 1) linear warmup for warmup_iters steps
+    if it < warmup_iters:
+        return learning_rate * it / warmup_iters
+    # 2) if it > lr_decay_iters, return min learning rate
+    if it > lr_decay_iters:
         return min_lr
     # 3) in between, use cosine decay down to min learning rate
-    decay_ratio = (it - warmup) / (lr_decay - warmup)
+    decay_ratio = (it - warmup_iters) / (lr_decay_iters - warmup_iters)
     assert 0 <= decay_ratio <= 1
     coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio)) # coeff ranges 0..1
     return min_lr + coeff * (learning_rate - min_lr)
-
-# learning rate decay scheduler (cosine with warmup)
-def get_lr_timed(tp):
-    # 1) linear warmup for warmup steps
-    if tp / sec_per_day < warmup:
-        return learning_rate * tp / sec_per_day / warmup
-    # 2) if time passed > lr_decay, return min learning rate
-    if tp / sec_per_day > lr_decay:
-        return min_lr
-    # 3) in between, use cosine decay down to min learning rate
-    decay_ratio = (tp / sec_per_day - warmup) / (lr_decay - warmup)
-    assert 0 <= decay_ratio <= 1
-    coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio)) # coeff ranges 0..1
-    return min_lr + coeff * (learning_rate - min_lr)
-
-# Batch size (i.e. accumulation steps) scheduler
-def get_acc_timed(tp):
-    if tp / sec_per_day < acc_warmup:
-        return min_acc
-    if tp / sec_per_day > acc_increase:
-        return max_acc
-    ratio = (tp / sec_per_day - acc_warmup) / (acc_increase - acc_warmup)
-    assert 0 <= ratio <= 1
-    return int(np.ceil(min_acc + ratio * (max_acc - min_acc)))
 
 # logging
 if wandb_log and master_process:
@@ -324,56 +226,29 @@ if wandb_log and master_process:
 # training loop
 X, Y = get_batch('train') # fetch the very first batch
 t0 = time.time()
-t_init = t0
-time_passed = 0
-current_eval_num = 0
 local_iter_num = 0 # number of iterations in the lifetime of this process
 raw_model = model.module if ddp else model # unwrap DDP container if needed
 running_mfu = -1.0
+clip_time = 0
 while True:
-    if eval_only:
-        model.eval()
-        enc = tiktoken.get_encoding("gpt2")
-        test_sentences = torch.randint(50000, (4, 12))
-        test_sentences[0] = torch.tensor(enc.encode("The seminar 'deep learning research kitchen' would be fun because"))
-        test_sentences[1] = torch.tensor(enc.encode("The golden gate bridge in Tuebingen was built in the"))
-        test_sentences[2] = torch.tensor(enc.encode("Where can you eat the healthiest and most delicious food?"))
-        test_sentences[3] = torch.tensor(enc.encode("Amidst the echoes of time, an ancient melody began to"))
-        test_output = model.generate(test_sentences.to(device), 128)
-        print(test_output)
-        torch.save(test_output.to("cpu"), f"{exp_name}_test_output.pt")
-        break
-
-    if time_passed > 720 and not os.path.isfile(f"{exp_name}.pt"):
-        break
 
     # determine and set the learning rate for this iteration
-    lr = get_lr_timed(time_passed) if decay_lr else learning_rate
+    lr = get_lr(iter_num) if decay_lr else learning_rate
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
-    gradient_accumulation_steps = get_acc_timed(time_passed) if use_acc_scheduler else gradient_accumulation_steps
-
-    bef_eval = time.time()
-    time_passed = bef_eval - t_init
     # evaluate the loss on train/val sets and write checkpoints
-
-    if (time_passed > eval_intervals[current_eval_num] or time_passed > sec_per_day) and master_process:
-    #if time.time() - t_init > sec_per_day:
-        current_eval_num += 1
+    if iter_num % eval_interval == 0 and master_process:
         losses = estimate_loss()
-        #print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
-        train_info[:, current_eval_num - 1] = torch.tensor([iter_num, time_passed, lr, gradient_accumulation_steps, losses['train'], losses['val']])
-        #print(train_info[:, iter_num // eval_interval])
-        
-        """if wandb_log:
+        print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
+        if wandb_log:
             wandb.log({
                 "iter": iter_num,
                 "train/loss": losses['train'],
                 "val/loss": losses['val'],
                 "lr": lr,
                 "mfu": running_mfu*100, # convert to percentage
-            })"""
+            }, step=iter_num)
         if losses['val'] < best_val_loss or always_save_checkpoint:
             best_val_loss = losses['val']
             if iter_num > 0:
@@ -386,30 +261,20 @@ while True:
                     'config': config,
                 }
                 print(f"saving checkpoint to {out_dir}")
-                torch.save(checkpoint, os.path.join(out_dir, f'ckpt_{exp_name}.pt'))
-        print("save")
-        torch.save(train_info, f"{exp_name}.pt")
-
-    # breaking condition
-    if time_passed > sec_per_day:
-        model.eval()
-        enc = tiktoken.get_encoding("gpt2")
-        test_sentences = torch.randint(50000, (4, 12))
-        test_sentences[0] = torch.tensor(enc.encode("The seminar 'deep learning research kitchen' would be fun because"))
-        test_sentences[1] = torch.tensor(enc.encode("The golden gate bridge in Tuebingen was built in the"))
-        test_sentences[2] = torch.tensor(enc.encode("Where can you eat the healthiest and most delicious food?"))
-        test_sentences[3] = torch.tensor(enc.encode("Amidst the echoes of time, an ancient melody began to"))
-        test_output = model.generate(test_sentences.to(device), 128)
-        print(test_output)
-        torch.save(test_output.to("cpu"), f"{exp_name}_test_output.pt")
+                torch.save(checkpoint, os.path.join(out_dir, 'ckpt.pt'))
+        if iter_num % (eval_interval * 5) == 0:
+            checkpoint = {
+                'model': raw_model.state_dict(),
+                'optimizer': optimizer.state_dict(),
+                'model_args': model_args,
+                'iter_num': iter_num,
+                'best_val_loss': best_val_loss,
+                'config': config,
+            }
+            print(f"saving checkpoint to {out_dir}")
+            torch.save(checkpoint, os.path.join(out_dir, 'ckpt_'+str(iter_num)+'.pt'))
+    if iter_num == 0 and eval_only:
         break
-
-    # offsetting t_init such that the eval time does not count towards the 1 day limit
-    t_eval = time.time() - bef_eval
-    print(t_eval)
-    t_init += t_eval
-
-    
 
     # forward backward update, with optional gradient accumulation to simulate larger batch size
     # and using the GradScaler if data type is float16
@@ -422,7 +287,6 @@ while True:
             model.require_backward_grad_sync = (micro_step == gradient_accumulation_steps - 1)
         with ctx:
             logits, loss = model(X, Y)
-            loss = loss / gradient_accumulation_steps # scale the loss to account for gradient accumulation
         # immediately async prefetch next batch while model is doing the forward pass on the GPU
         X, Y = get_batch('train')
         # backward pass, with gradient scaling if training in fp16
@@ -430,7 +294,9 @@ while True:
     # clip the gradient
     if grad_clip != 0.0:
         scaler.unscale_(optimizer)
-        torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
+        total_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
+        if total_norm.item() > grad_clip:
+            clip_time += 1
     # step the optimizer and scaler if training in fp16
     scaler.step(optimizer)
     scaler.update()
@@ -442,21 +308,39 @@ while True:
     dt = t1 - t0
     t0 = t1
     if iter_num % log_interval == 0 and master_process:
-        #print(torch.cuda.memory_summary())
-        # get loss as float. note: this is a CPU-GPU sync point
-        # scale up to undo the division above, approximating the true total loss (exact would have been a sum)
-        lossf = loss.item() * gradient_accumulation_steps
+        lossf = loss.item() # loss as float. note: this is a CPU-GPU sync point
         if local_iter_num >= 5: # let the training loop settle a bit
             mfu = raw_model.estimate_mfu(batch_size * gradient_accumulation_steps, dt)
             running_mfu = mfu if running_mfu == -1.0 else 0.9*running_mfu + 0.1*mfu
         print(f"iter {iter_num}: loss {lossf:.4f}, time {dt*1000:.2f}ms, mfu {running_mfu*100:.2f}%")
-        
+        params = []
+        for (name, p) in model.named_parameters():
+            params.append(p)
+        total_param_norm = 0
+        for p in params:
+            param_norm = p.data.norm(2)
+            total_param_norm += param_norm.item() ** 2
+        total_param_norm = total_param_norm ** 0.5
+        momentum_norm = 0
+        LL = len(optimizer.state_dict()['state'])
+        for jj in range(LL):
+            momentum_norm += (optimizer.state_dict()['state'][jj]['exp_avg'].detach().norm(2)) ** 2
+        momentum_norm = torch.sqrt(momentum_norm).item()
+        if wandb_log:
+            wandb.log({
+                "iter": iter_num,
+                "train/loss": lossf,
+                "lr": lr,
+                "param_norm": total_param_norm,
+                "momentum_norm" : momentum_norm,
+                "train/clip_rate": clip_time / (iter_num + 1)
+            }, step=iter_num)
     iter_num += 1
     local_iter_num += 1
 
     # termination conditions
-    #if iter_num > max_iters:
-    #    break
+    if iter_num > max_iters:
+        break
 
 if ddp:
     destroy_process_group()
