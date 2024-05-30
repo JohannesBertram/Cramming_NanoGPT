@@ -287,7 +287,7 @@ class GPT(nn.Module):
             optimizer = torch.optim.AdamW(optim_groups, lr=learning_rate, betas=betas, **extra_args)
             print(f"using fused AdamW: {use_fused}")
         elif optimizer_type == "Sophia":
-            optimizer = SophiaG(optim_groups, lr=learning_rate)
+            optimizer = SophiaG(optim_groups, lr=learning_rate, rho=0.05)
             print(f"using Sophia optimizer")
 
         return optimizer
