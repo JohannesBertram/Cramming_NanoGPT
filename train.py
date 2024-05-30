@@ -329,6 +329,19 @@ local_iter_num = 0 # number of iterations in the lifetime of this process
 raw_model = model.module if ddp else model # unwrap DDP container if needed
 running_mfu = -1.0
 while True:
+    if eval_only:
+        model.eval()
+        enc = tiktoken.get_encoding("gpt2")
+        test_sentences = torch.randint(50000, (4, 12))
+        test_sentences[0] = torch.tensor(enc.encode("The seminar 'deep learning research kitchen' would be fun because"))
+        test_sentences[1] = torch.tensor(enc.encode("The golden gate bridge in Tuebingen was built in the"))
+        test_sentences[2] = torch.tensor(enc.encode("Where can you eat the healthiest and most delicious food?"))
+        test_sentences[3] = torch.tensor(enc.encode("Amidst the echoes of time, an ancient melody began to"))
+        test_output = model.generate(test_sentences.to(device), 128)
+        print(test_output)
+        torch.save(test_output.to("cpu"), f"{exp_name}_test_output.pt")
+        break
+
     if time_passed > 720 and not os.path.isfile(f"{exp_name}.pt"):
         break
 
@@ -394,18 +407,7 @@ while True:
     print(t_eval)
     t_init += t_eval
 
-    if iter_num == 0 and eval_only:
-        model.eval()
-        enc = tiktoken.get_encoding("gpt2")
-        test_sentences = torch.randint(50000, (4, 12))
-        test_sentences[0] = torch.tensor(enc.encode("The seminar 'deep learning research kitchen' would be fun because"))
-        test_sentences[1] = torch.tensor(enc.encode("The golden gate bridge in Tuebingen was built in the"))
-        test_sentences[2] = torch.tensor(enc.encode("Where can you eat the healthiest and most delicious food?"))
-        test_sentences[3] = torch.tensor(enc.encode("Amidst the echoes of time, an ancient melody began to"))
-        test_output = model.generate(test_sentences.to(device), 128)
-        print(test_output)
-        torch.save(test_output.to("cpu"), f"{exp_name}_test_output.pt")
-        break
+    
 
     # forward backward update, with optional gradient accumulation to simulate larger batch size
     # and using the GradScaler if data type is float16
