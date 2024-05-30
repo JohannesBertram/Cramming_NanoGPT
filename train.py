@@ -30,7 +30,7 @@ from torch.distributed import init_process_group, destroy_process_group
 
 from model import GPTConfig, GPT
 
-output_type = "test"
+output_type = "res"
 seed = 5
 
 torch.manual_seed(seed)
@@ -325,6 +325,7 @@ if wandb_log and master_process:
 X, Y = get_batch('train') # fetch the very first batch
 t0 = time.time()
 t_init = t0
+mfu = -100
 time_passed = 0
 current_eval_num = 0
 local_iter_num = 0 # number of iterations in the lifetime of this process
@@ -363,7 +364,7 @@ while True:
         current_eval_num += 1
         losses = estimate_loss()
         #print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
-        train_info[:, current_eval_num - 1] = torch.tensor([iter_num, time_passed, lr, gradient_accumulation_steps, losses['train'], losses['val']])
+        train_info[:, current_eval_num - 1] = torch.tensor([iter_num, time_passed, lr, gradient_accumulation_steps, mfu, losses['val']])
         #print(train_info[:, iter_num // eval_interval])
         
         """if wandb_log:
@@ -442,14 +443,14 @@ while True:
     dt = t1 - t0
     t0 = t1
     if iter_num % log_interval == 0 and master_process:
-        print(torch.cuda.memory_summary())
+        #print(torch.cuda.memory_summary())
         # get loss as float. note: this is a CPU-GPU sync point
         # scale up to undo the division above, approximating the true total loss (exact would have been a sum)
         lossf = loss.item() * gradient_accumulation_steps
         if local_iter_num >= 5: # let the training loop settle a bit
             mfu = raw_model.estimate_mfu(batch_size * gradient_accumulation_steps, dt)
             running_mfu = mfu if running_mfu == -1.0 else 0.9*running_mfu + 0.1*mfu
-        print(f"iter {iter_num}: loss {lossf:.4f}, time {dt*1000:.2f}ms, mfu {running_mfu*100:.2f}%")
+        #print(f"iter {iter_num}: loss {lossf:.4f}, time {dt*1000:.2f}ms, mfu {running_mfu*100:.2f}%")
         
     iter_num += 1
     local_iter_num += 1
