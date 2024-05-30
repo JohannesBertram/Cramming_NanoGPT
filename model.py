@@ -15,7 +15,7 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
-from Sophia.sophia import Sophia
+from Sophia.sophia import SophiaG
 
 class LayerNorm(nn.Module):
     """ LayerNorm but with an optional bias. PyTorch doesn't support simply bias=False """
@@ -287,7 +287,7 @@ class GPT(nn.Module):
             optimizer = torch.optim.AdamW(optim_groups, lr=learning_rate, betas=betas, **extra_args)
             print(f"using fused AdamW: {use_fused}")
         elif optimizer_type == "Sophia":
-            optimizer = Sophia(optim_groups, lr=learning_rate)
+            optimizer = SophiaG(optim_groups, lr=learning_rate)
             print(f"using Sophia optimizer")
 
         return optimizer
