@@ -30,12 +30,12 @@ from torch.distributed import init_process_group, destroy_process_group
 
 from model import GPTConfig, GPT
 
-output_type = "test"
+output_type = "res"
 seed = 5
 
 torch.manual_seed(seed)
 #torch.cuda.manual_seed_all(seed)
-sec_per_day = 200
+sec_per_day = 79200
 
 learning_rate = 6e-4 # max learning rate
 
@@ -69,10 +69,10 @@ torch.save(train_info, f"{exp_name}.pt")
 # I/O
 out_dir = 'out'
 log_interval = 1
-eval_iters = 10
-eval_only = False # if True, script exits right after the first eval
+eval_iters = 100
+eval_only = True # if True, script exits right after the first eval
 always_save_checkpoint = False # if True, always save a checkpoint after each eval
-init_from = 'scratch' # 'scratch' or 'resume' or 'gpt2*'
+init_from = 'resume' # 'scratch' or 'resume' or 'gpt2*'
 # wandb logging
 wandb_log = False # disabled by default
 wandb_project = 'owt'
@@ -204,7 +204,7 @@ if init_from == 'scratch':
 elif init_from == 'resume':
     print(f"Resuming training from {out_dir}")
     # resume training from a checkpoint.
-    ckpt_path = os.path.join(out_dir, 'ckpt.pt')
+    ckpt_path = os.path.join(out_dir, f'ckpt_f{exp_name}.pt')
     checkpoint = torch.load(ckpt_path, map_location=device)
     checkpoint_model_args = checkpoint['model_args']
     # force these config attributes to be equal otherwise we can't even resume training
@@ -395,6 +395,16 @@ while True:
     t_init += t_eval
 
     if iter_num == 0 and eval_only:
+        model.eval()
+        enc = tiktoken.get_encoding("gpt2")
+        test_sentences = torch.randint(50000, (4, 12))
+        test_sentences[0] = torch.tensor(enc.encode("The seminar 'deep learning research kitchen' would be fun because"))
+        test_sentences[1] = torch.tensor(enc.encode("The golden gate bridge in Tuebingen was built in the"))
+        test_sentences[2] = torch.tensor(enc.encode("Where can you eat the healthiest and most delicious food?"))
+        test_sentences[3] = torch.tensor(enc.encode("Amidst the echoes of time, an ancient melody began to"))
+        test_output = model.generate(test_sentences.to(device), 128)
+        print(test_output)
+        torch.save(test_output.to("cpu"), f"{exp_name}_test_output.pt")
         break
 
     # forward backward update, with optional gradient accumulation to simulate larger batch size
