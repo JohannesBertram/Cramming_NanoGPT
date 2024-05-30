@@ -35,7 +35,7 @@ seed = 5
 
 torch.manual_seed(seed)
 #torch.cuda.manual_seed_all(seed)
-sec_per_day = 300
+sec_per_day = 200
 
 learning_rate = 6e-4 # max learning rate
 
@@ -69,7 +69,7 @@ torch.save(train_info, f"{exp_name}.pt")
 # I/O
 out_dir = 'out'
 log_interval = 1
-eval_iters = 100
+eval_iters = 10
 eval_only = False # if True, script exits right after the first eval
 always_save_checkpoint = False # if True, always save a checkpoint after each eval
 init_from = 'scratch' # 'scratch' or 'resume' or 'gpt2*'
@@ -384,9 +384,9 @@ while True:
         test_sentences[1] = torch.tensor(enc.encode("The golden gate bridge in Tuebingen was built in the"))
         test_sentences[2] = torch.tensor(enc.encode("Where can you eat the healthiest and most delicious food?"))
         test_sentences[3] = torch.tensor(enc.encode("Amidst the echoes of time, an ancient melody began to"))
-        test_output = model.generate(test_sentences, 128)
-        
-        torch.save(test_output, f"{exp_name}_test_output.pt")
+        test_output = model.generate(test_sentences.to(device), 128)
+        print(test_output)
+        torch.save(test_output.to("cpu"), f"{exp_name}_test_output.pt")
         break
 
     # offsetting t_init such that the eval time does not count towards the 1 day limit
