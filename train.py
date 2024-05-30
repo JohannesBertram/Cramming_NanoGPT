@@ -30,6 +30,7 @@ from torch.distributed import init_process_group, destroy_process_group
 
 from model import GPTConfig, GPT
 
+output_type = "test"
 seed = 5
 
 torch.manual_seed(seed)
@@ -57,7 +58,7 @@ lr_decay = 1 # should be ~= max_iters per Chinchilla
 eval_intervals = np.append(np.arange(0, sec_per_day - 360, 720), np.arange(sec_per_day - 120, sec_per_day, 10))
 print(len(eval_intervals))
 
-exp_name = f"res_{min_acc}_{max_acc}_{acc_warmup}_{acc_increase}_{batch_size}_{block_size}_{learning_rate}_{seed}"
+exp_name = f"{output_type}_{min_acc}_{max_acc}_{acc_warmup}_{acc_increase}_{batch_size}_{block_size}_{learning_rate}_{seed}"
 
 # saving training progress
 train_info = torch.zeros((6, len(eval_intervals) + 1))
