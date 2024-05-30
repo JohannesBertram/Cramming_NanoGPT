@@ -21,6 +21,7 @@ import time
 import math
 import pickle
 from contextlib import nullcontext
+import tiktoken
 
 import numpy as np
 import torch
@@ -29,18 +30,18 @@ from torch.distributed import init_process_group, destroy_process_group
 
 from model import GPTConfig, GPT
 
-seed = 6
+seed = 5
 
 torch.manual_seed(seed)
 #torch.cuda.manual_seed_all(seed)
-sec_per_day = 79200
+sec_per_day = 300
 
 learning_rate = 6e-4 # max learning rate
 
 gradient_accumulation_steps = 8*5*8 # used to simulate larger batch sizes
 min_acc = 1 # min accumuluation steps at start of batch_size schedule
 max_acc = 32
-acc_increase = 0.25
+acc_increase = 1
 acc_warmup = 0
 use_acc_scheduler = True
 
@@ -375,6 +376,16 @@ while True:
 
     # breaking condition
     if time_passed > sec_per_day:
+        model.eval()
+        enc = tiktoken.get_encoding("gpt2")
+        test_sentences = torch.randint(50000, (4, 12))
+        test_sentences[0] = torch.tensor(enc.encode("The seminar 'deep learning research kitchen' would be fun because"))
+        test_sentences[1] = torch.tensor(enc.encode("The golden gate bridge in Tuebingen was built in the"))
+        test_sentences[2] = torch.tensor(enc.encode("Where can you eat the healthiest and most delicious food?"))
+        test_sentences[3] = torch.tensor(enc.encode("Amidst the echoes of time, an ancient melody began to"))
+        test_output = model.generate(test_sentences, 128)
+        
+        torch.save(test_output, f"{exp_name}_test_output.pt")
         break
 
     # offsetting t_init such that the eval time does not count towards the 1 day limit
@@ -412,18 +423,18 @@ while True:
     optimizer.zero_grad(set_to_none=True)
 
     # timing and logging
-    """t1 = time.time()
+    t1 = time.time()
     dt = t1 - t0
     t0 = t1
     if iter_num % log_interval == 0 and master_process:
-        print(torch.cuda.memory_summary())
+        #print(torch.cuda.memory_summary())
         # get loss as float. note: this is a CPU-GPU sync point
         # scale up to undo the division above, approximating the true total loss (exact would have been a sum)
         lossf = loss.item() * gradient_accumulation_steps
         if local_iter_num >= 5: # let the training loop settle a bit
             mfu = raw_model.estimate_mfu(batch_size * gradient_accumulation_steps, dt)
             running_mfu = mfu if running_mfu == -1.0 else 0.9*running_mfu + 0.1*mfu
-        print(f"iter {iter_num}: loss {lossf:.4f}, time {dt*1000:.2f}ms, mfu {running_mfu*100:.2f}%")"""
+        print(f"iter {iter_num}: loss {lossf:.4f}, time {dt*1000:.2f}ms, mfu {running_mfu*100:.2f}%")
         
     iter_num += 1
     local_iter_num += 1
