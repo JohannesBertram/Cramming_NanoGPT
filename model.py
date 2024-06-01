@@ -16,7 +16,7 @@ import torch.nn as nn
 from torch.nn import functional as F
 
 from Sophia.sophia import SophiaG
-from lion-pytorch.lion_pytorch.lion_pytorch import Lion
+from lion_pytorch.lion_pytorch import Lion
 
 class LayerNorm(nn.Module):
     """ LayerNorm but with an optional bias. PyTorch doesn't support simply bias=False """
