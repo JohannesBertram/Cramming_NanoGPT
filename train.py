@@ -46,8 +46,8 @@ acc_increase = 1
 acc_warmup = 0
 use_acc_scheduler = True
 
-batch_size = 12 # if gradient_accumulation_steps > 1, this is the micro-batch size
-block_size = 512
+batch_size = 4 # if gradient_accumulation_steps > 1, this is the micro-batch size
+block_size = 1024
 #mean_batch_size = 300
 #est_sec_per_batch_element = 0.178
 #max_iters = np.min([sec_per_day * 2, int(np.round((sec_per_day / (mean_batch_size * est_sec_per_batch_element)) * 1.2))]) # total number of training iterations
@@ -449,7 +449,7 @@ while True:
     dt = t1 - t0
     t0 = t1
     if iter_num % log_interval == 0 and master_process:
-        #print(torch.cuda.memory_summary())
+        print(torch.cuda.memory_summary())
         # get loss as float. note: this is a CPU-GPU sync point
         # scale up to undo the division above, approximating the true total loss (exact would have been a sum)
         lossf = loss.item() * gradient_accumulation_steps
