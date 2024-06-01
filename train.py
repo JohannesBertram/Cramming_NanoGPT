@@ -31,7 +31,7 @@ from torch.distributed import init_process_group, destroy_process_group
 from model import GPTConfig, GPT
 
 output_type = "res"
-seed = 6
+seed = 7
 
 torch.manual_seed(seed)
 #torch.cuda.manual_seed_all(seed)
