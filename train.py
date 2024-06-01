@@ -31,7 +31,7 @@ from torch.distributed import init_process_group, destroy_process_group
 from model import GPTConfig, GPT
 
 output_type = "res"
-seed = 6
+seed = 5
 
 torch.manual_seed(seed)
 #torch.cuda.manual_seed_all(seed)
@@ -41,7 +41,7 @@ learning_rate = 6e-4 # max learning rate
 
 gradient_accumulation_steps = 8*5*8 # used to simulate larger batch sizes
 min_acc = 1 # min accumuluation steps at start of batch_size schedule
-max_acc = 1
+max_acc = 16
 acc_increase = 1
 acc_warmup = 0
 use_acc_scheduler = True
