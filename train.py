@@ -30,7 +30,7 @@ from torch.distributed import init_process_group, destroy_process_group
 
 from model import GPTConfig, GPT
 
-output_type = "res"
+output_type = "test"
 seed = 6
 
 torch.manual_seed(seed)
@@ -58,7 +58,7 @@ lr_decay = 1 # should be ~= max_iters per Chinchilla
 eval_intervals = np.append(np.arange(0, sec_per_day - 360, 720), np.arange(sec_per_day - 120, sec_per_day, 10))
 print(len(eval_intervals))
 
-optimizer_type = "AdamW"
+optimizer_type = "Lion"
 
 exp_name = f"{output_type}_{optimizer_type}_{min_acc}_{max_acc}_{acc_warmup}_{acc_increase}_{batch_size}_{block_size}_{learning_rate}_{seed}"
 
@@ -93,6 +93,7 @@ bias = False # do we use bias inside LayerNorm and Linear layers?
 
 
 weight_decay = 1e-1 if optimizer_type == "AdamW" else 2e-2
+
 beta1 = 0.9
 beta2 = 0.95
 grad_clip = 1.0 # clip gradients at this value, or disable if == 0.0
@@ -100,6 +101,11 @@ grad_clip = 1.0 # clip gradients at this value, or disable if == 0.0
 decay_lr = True # whether to decay the learning rate
 warmup = 1/300 # how many steps to warm up for
 min_lr = 6e-5 # minimum learning rate, should be ~= learning_rate/10 per Chinchilla
+
+if optimizer_type == "Lion":
+    #weight_decay = 5e-1
+    learning_rate /= 5
+    min_lr /= 5
 # DDP settings
 backend = 'nccl' # 'nccl', 'gloo', etc.
 # system
