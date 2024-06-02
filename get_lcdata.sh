@@ -25,5 +25,5 @@ echo COPIED
 # Load the conda environment
 source activate data
 # Run your script
-python /data/openwebtextprepare_lc.py
+python /data/openwebtext/prepare_lc.py
 echo DONE
