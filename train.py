@@ -46,8 +46,8 @@ acc_increase = 0.5
 acc_warmup = 0
 use_acc_scheduler = True
 
-batch_size = 12 # if gradient_accumulation_steps > 1, this is the micro-batch size
-block_size = 512
+batch_size = 4 # if gradient_accumulation_steps > 1, this is the micro-batch size
+block_size = 1024
 #mean_batch_size = 300
 #est_sec_per_batch_element = 0.178
 #max_iters = np.min([sec_per_day * 2, int(np.round((sec_per_day / (mean_batch_size * est_sec_per_batch_element)) * 1.2))]) # total number of training iterations
