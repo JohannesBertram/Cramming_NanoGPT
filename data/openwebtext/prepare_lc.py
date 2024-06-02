@@ -2,9 +2,8 @@ import os
 import re
 from tqdm import tqdm
 import numpy as np
-from tokenizers import WhitespaceTokenizer
+from nltk.tokenize import WhitespaceTokenizer
 from datasets import load_dataset
-
 
 # number of workers in .map() call
 num_proc = 8
@@ -32,8 +31,8 @@ if __name__ == '__main__':
 
     # tokenize the preprocessed dataset
     def process(example):
-        ids = tokenizer.encode(example['text']).ids
-        ids = tf.concat([ids, [tokenizer.vocab_size]], axis=0)  # add end-of-sequence token
+        ids = [tokenizer.vocab_size + 1 if token == '<eos>' else tokenizer.token_to_id(token) for token in tokenizer.tokenize(example['text'])]
+        ids.append(tokenizer.vocab_size)  # add end-of-sequence token
         out = {'ids': ids, 'len': len(ids)}
         return out
 
