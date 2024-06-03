@@ -6,7 +6,7 @@ from nltk.tokenize import WhitespaceTokenizer
 from datasets import load_dataset
 
 # number of workers in .map() call
-num_proc = 8
+num_proc = 4
 
 # number of workers in load_dataset() call
 num_proc_load_dataset = num_proc
