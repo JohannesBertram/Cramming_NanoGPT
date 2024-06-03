@@ -7,7 +7,7 @@
 #SBATCH --partition=day
 #SBATCH --gres=gpu:4
 #SBATCH --mem-per-cpu=150
-#SBATCH --time=1000:00
+#SBATCH --time=1400:00
 #SBATCH --error=job.%J.err
 #SBATCH --output=job.%J.out
 #SBATCH --mail-type=ALL
