@@ -54,7 +54,7 @@ block_size = 512
 lr_decay = 1 # should be ~= max_iters per Chinchilla
 
 datatype = "ci"
-set_vocab_size = 33408
+set_vocab_size = 0
 
 eval_intervals = np.append(np.arange(0, sec_per_day - 360, 720), np.arange(sec_per_day - 120, sec_per_day, 10))
 print(len(eval_intervals))
