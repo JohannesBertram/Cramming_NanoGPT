@@ -7,7 +7,7 @@ train_bin_path = 'ci_train.bin'
 def count_unique_tokens_in_bin(file_path):
     dtype = np.uint16  # Assuming the tokens are stored as uint16
     tokens = np.fromfile(file_path, dtype=dtype)
-    tokens = tokens[:int(np.round(0.25*len(tokens)))]
+    tokens = tokens[:int(np.round(0.5*len(tokens)))]
     unique_tokens = np.unique(tokens)
     vocab_size = len(unique_tokens)
     return vocab_size
