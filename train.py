@@ -54,13 +54,14 @@ block_size = 512
 lr_decay = 1 # should be ~= max_iters per Chinchilla
 
 datatype = "ci"
+set_vocab_size = 33408
 
 eval_intervals = np.append(np.arange(0, sec_per_day - 360, 720), np.arange(sec_per_day - 120, sec_per_day, 10))
 print(len(eval_intervals))
 
 optimizer_type = "AdamW"
 
-exp_name = f"{output_type}_{datatype}_{optimizer_type}_{min_acc}_{max_acc}_{acc_warmup}_{acc_increase}_{batch_size}_{block_size}_{learning_rate}_{seed}"
+exp_name = f"{output_type}_{datatype}_{set_vocab_size}_{optimizer_type}_{min_acc}_{max_acc}_{acc_warmup}_{acc_increase}_{batch_size}_{block_size}_{learning_rate}_{seed}"
 
 # saving training progress
 train_info = torch.zeros((6, len(eval_intervals) + 1))
@@ -210,9 +211,14 @@ if init_from == 'scratch':
     # init a new model from scratch
     print("Initializing a new model from scratch")
     # determine the vocab size we'll use for from-scratch training
-    if meta_vocab_size is None:
-        print("defaulting to vocab_size of GPT-2 to 50304 (50257 rounded up for efficiency)")
-    model_args['vocab_size'] = meta_vocab_size if meta_vocab_size is not None else 50304
+    
+    if set_vocab_size > 0:
+        model_args['vocab_size'] = set_vocab_size
+        print("case-insensitive vocab_size of 33408 (33323 rounded up for efficiency)")
+    else:    
+        if meta_vocab_size is None:
+            print("defaulting to vocab_size of GPT-2 to 50304 (50257 rounded up for efficiency)")
+        model_args['vocab_size'] = meta_vocab_size if meta_vocab_size is not None else 50304
     gptconf = GPTConfig(**model_args)
     model = GPT(gptconf)
 elif init_from == 'resume':
