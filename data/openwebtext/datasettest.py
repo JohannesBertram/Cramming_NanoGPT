@@ -4,19 +4,15 @@ import os
 # Path to the case-insensitive train.bin file
 train_bin_path = 'ci_train.bin'
 
-# Ensure the file exists
-if not os.path.isfile(train_bin_path):
-    raise FileNotFoundError(f"File not found: {train_bin_path}")
-
-# Read the binary file and calculate the number of tokens
-def count_tokens_in_bin(file_path):
+def count_unique_tokens_in_bin(file_path):
     dtype = np.uint16  # Assuming the tokens are stored as uint16
     tokens = np.fromfile(file_path, dtype=dtype)
-    num_tokens = len(tokens)
-    return num_tokens
+    unique_tokens = np.unique(tokens)
+    vocab_size = len(unique_tokens)
+    return vocab_size
 
-# Get the number of tokens
-num_tokens = count_tokens_in_bin(train_bin_path)
+# Get the number of distinct tokens
+vocab_size = count_unique_tokens_in_bin(train_bin_path)
 
 # Print the result
-print(f"Number of tokens in the case-insensitive dataset: {num_tokens}")
+print(f"Vocabulary size (number of distinct tokens) in the case-insensitive dataset: {vocab_size}")
