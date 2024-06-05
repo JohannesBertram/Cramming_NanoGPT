@@ -64,7 +64,7 @@ optimizer_type = "AdamW"
 exp_name = f"{output_type}_{datatype}_{set_vocab_size}_{optimizer_type}_{min_acc}_{max_acc}_{acc_warmup}_{acc_increase}_{batch_size}_{block_size}_{learning_rate}_{seed}"
 
 # saving training progress
-train_info = torch.zeros((6, len(eval_intervals) + 1))
+train_info = torch.zeros((6, len(eval_intervals) + 2))
 torch.save(train_info, f"{exp_name}.pt")
 
 # -----------------------------------------------------------------------------
