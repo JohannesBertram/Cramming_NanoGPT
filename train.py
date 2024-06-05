@@ -57,7 +57,7 @@ datatype = "ci"
 set_vocab_size = 33408
 
 #eval_intervals = np.append(np.arange(0, sec_per_day - 360, 720), np.arange(sec_per_day - 120, sec_per_day, 110))
-eval_intervals = np.append(np.append(np.arange(0, sec_per_day - 360, 720), np.arange(sec_per_day - 120, sec_per_day, 110)), np.array(60, 61))
+eval_intervals = np.append(np.append(np.arange(0, sec_per_day - 360, 720), np.arange(sec_per_day - 120, sec_per_day, 110)), np.array([60, 61]))
 print(len(eval_intervals))
 
 optimizer_type = "AdamW"
@@ -412,6 +412,7 @@ while True:
         #print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
         train_info[:, current_eval_num - 1] = torch.tensor([iter_num, time_passed, lr, gradient_accumulation_steps, mfu, losses['val']])
         #print(train_info[:, iter_num // eval_interval])
+        print(losses['val'])
         
         """if wandb_log:
             wandb.log({
@@ -480,7 +481,6 @@ while True:
 
     # offsetting t_init such that the eval time does not count towards the 1 day limit
     t_eval = time.time() - bef_eval
-    print(t_eval)
     t_init += t_eval
 
     
