@@ -462,7 +462,8 @@ while True:
             def map_tokens(tokens, mapping):
                 mapped_tokens = torch.clone(tokens)
                 for original, mapped in mapping.items():
-                    
+                    if original == 464:
+                        print(mapped)
                     mapped_tokens[tokens == original] = mapped
                 return mapped_tokens
 
