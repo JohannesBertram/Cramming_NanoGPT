@@ -473,7 +473,9 @@ while True:
                 return remapped_tokens
             
             test_sentences = map_tokens(test_sentences, mapping)
+            print(test_sentences)
         test_output = model.generate(test_sentences.to(device), 128)
+        print(test_output)
         if datatype == "ci":
             test_output = remap_tokens(test_output, reverse_mapping)
         print(test_output)
