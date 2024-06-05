@@ -56,7 +56,8 @@ lr_decay = 1 # should be ~= max_iters per Chinchilla
 datatype = "ci"
 set_vocab_size = 33408
 
-eval_intervals = np.append(np.arange(0, sec_per_day - 360, 720), np.arange(sec_per_day - 120, sec_per_day, 110))
+#eval_intervals = np.append(np.arange(0, sec_per_day - 360, 720), np.arange(sec_per_day - 120, sec_per_day, 110))
+eval_intervals = np.append(np.append(np.arange(0, sec_per_day - 360, 720), np.arange(sec_per_day - 120, sec_per_day, 110)), np.array(60, 61))
 print(len(eval_intervals))
 
 optimizer_type = "AdamW"
