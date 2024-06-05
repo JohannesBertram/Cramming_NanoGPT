@@ -493,9 +493,7 @@ while True:
         if datatype == "ci":
             test_output = remap_tokens(test_output, reverse_mapping)
         print(test_output)
-        for i in range(4):
-            print("##################")
-            print(enc.decode(test_output[i]))
+
         torch.save(test_output.to("cpu"), f"{exp_name}_test_output.pt")
         break
 
