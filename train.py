@@ -472,7 +472,7 @@ while True:
                 for mapped, original in reverse_mapping.items():
                     remapped_tokens[tokens == mapped] = original
                 return remapped_tokens
-            
+            print(test_sentences)
             test_sentences = map_tokens(test_sentences, mapping)
             print(test_sentences)
         test_output = model.generate(test_sentences.to(device), 128)
@@ -480,6 +480,9 @@ while True:
         if datatype == "ci":
             test_output = remap_tokens(test_output, reverse_mapping)
         print(test_output)
+        for i in range(4):
+            print("##################")
+            print(enc.decode(test_output[i]))
         torch.save(test_output.to("cpu"), f"{exp_name}_test_output.pt")
         break
 
