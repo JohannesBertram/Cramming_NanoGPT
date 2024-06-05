@@ -42,7 +42,7 @@ if len(all_unique_tokens) > smaller_vocab_size:
 token_mapping = {token: idx for idx, token in enumerate(all_unique_tokens)}
 
 # Save the reverse mapping to remap back later
-reverse_mapping = {v: k for k, v in token_mapping.items()}
+reverse_mapping = {v: int(k) for k, v in token_mapping.items()}
 
 # Save the reverse mapping to a JSON file
 reverse_mapping_path = 'reverse_mapping.json'
