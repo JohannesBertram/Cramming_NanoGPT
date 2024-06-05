@@ -358,7 +358,7 @@ while True:
         test_sentences = torch.randint(50000, (4, 12))
         if datatype == "ci":
             test_sentences[0] = torch.tensor(enc.encode("the seminar 'deep learning research kitchen' would be fun because"))
-            test_sentences[1] = torch.tensor(enc.encode("the golden gate bridge in tuebingen was built in the"))
+            test_sentences[1] = torch.tensor(enc.encode("the golden gate bridge in tuebingen was built in"))
             test_sentences[2] = torch.tensor(enc.encode("where can you eat the healthiest and most delicious food?"))
             test_sentences[3] = torch.tensor(enc.encode("amidst the echoes of time, an ancient melody began to"))
         else:
@@ -452,7 +452,7 @@ while True:
         test_sentences = torch.randint(50000, (4, 12))
         if datatype == "ci":
             test_sentences[0] = torch.tensor(enc.encode("the seminar 'deep learning research kitchen' would be fun because"))
-            test_sentences[1] = torch.tensor(enc.encode("the golden gate bridge in tuebingen was built in the"))
+            test_sentences[1] = torch.tensor(enc.encode("the golden gate bridge in tuebingen was built in"))
             test_sentences[2] = torch.tensor(enc.encode("where can you eat the healthiest and most delicious food?"))
             test_sentences[3] = torch.tensor(enc.encode("amidst the echoes of time, an ancient melody began to"))
         else:
