@@ -35,7 +35,7 @@ seed = 5
 
 torch.manual_seed(seed)
 #torch.cuda.manual_seed_all(seed)
-sec_per_day = 79200
+sec_per_day = 60
 
 learning_rate = 6e-4 # max learning rate
 
