@@ -40,7 +40,7 @@ sec_per_day = 79200
 learning_rate = 6e-4 # max learning rate
 
 gradient_accumulation_steps = 8*5*8 # used to simulate larger batch sizes
-min_acc = 32 # min accumuluation steps at start of batch_size schedule
+min_acc = 1 # min accumuluation steps at start of batch_size schedule
 max_acc = 32
 acc_increase = 1
 acc_warmup = 0
@@ -166,13 +166,13 @@ def get_batch(split):
     # https://stackoverflow.com/questions/45132940/numpy-memmap-memory-usage-want-to-iterate-once/61472122#61472122
     if split == 'train':
         if datatype == "ci":
-            data = np.memmap(os.path.join(data_dir, 'ci_train.bin'), dtype=np.uint16, mode='r')
+            data = np.memmap(os.path.join(data_dir, 'mapped_train.bin'), dtype=np.uint16, mode='r')
         else:
             data = np.memmap(os.path.join(data_dir, 'train.bin'), dtype=np.uint16, mode='r')
         ix = torch.randint(len(data) - 1024, (batch_size,))
     else:
         if datatype == "ci":
-            data = np.memmap(os.path.join(data_dir, 'ci_val.bin'), dtype=np.uint16, mode='r')
+            data = np.memmap(os.path.join(data_dir, 'mapped_val.bin'), dtype=np.uint16, mode='r')
         else:
             data = np.memmap(os.path.join(data_dir, 'val.bin'), dtype=np.uint16, mode='r')
         ix = torch.randint(len(data) - 1024, (4,))
@@ -358,7 +358,34 @@ while True:
         test_sentences[1] = torch.tensor(enc.encode("The golden gate bridge in Tuebingen was built in the"))
         test_sentences[2] = torch.tensor(enc.encode("Where can you eat the healthiest and most delicious food?"))
         test_sentences[3] = torch.tensor(enc.encode("Amidst the echoes of time, an ancient melody began to"))
+        if datatype == "ci":
+            # Load the reverse mapping from the JSON file
+            with open(reverse_mapping_path, 'r') as f:
+                reverse_mapping = json.load(f)
+
+            # Convert keys back to integers since JSON converts keys to strings
+            reverse_mapping = {int(k): int(v) for k, v in reverse_mapping.items()}
+
+            mapping = {v: k for k, v in reverse_mapping.items()}
+
+            # Example function to remap tokens back after training
+            def map_tokens(tokens, mapping):
+                mapped_tokens = torch.clone(tokens)
+                for original, mapped in mapping.items():
+                    mapped_tokens[tokens == original] = mapped
+                return mapped_tokens
+
+            # Function to remap tokens back to the original vocab
+            def remap_tokens(tokens, reverse_mapping):
+                remapped_tokens = torch.clone(tokens)
+                for mapped, original in reverse_mapping.items():
+                    remapped_tokens[tokens == mapped] = original
+                return remapped_tokens
+            
+            test_sentences = map_tokens(test_sentences, mapping)
         test_output = model.generate(test_sentences.to(device), 128)
+        if datatype == "ci":
+            test_output = remap_tokens(test_output, reverse_mapping)
         print(test_output)
         torch.save(test_output.to("cpu"), f"{exp_name}_test_output.pt")
         break
@@ -418,7 +445,34 @@ while True:
         test_sentences[1] = torch.tensor(enc.encode("The golden gate bridge in Tuebingen was built in the"))
         test_sentences[2] = torch.tensor(enc.encode("Where can you eat the healthiest and most delicious food?"))
         test_sentences[3] = torch.tensor(enc.encode("Amidst the echoes of time, an ancient melody began to"))
+        if datatype == "ci":
+            # Load the reverse mapping from the JSON file
+            with open(reverse_mapping_path, 'r') as f:
+                reverse_mapping = json.load(f)
+
+            # Convert keys back to integers since JSON converts keys to strings
+            reverse_mapping = {int(k): int(v) for k, v in reverse_mapping.items()}
+
+            mapping = {v: k for k, v in reverse_mapping.items()}
+
+            # Example function to remap tokens back after training
+            def map_tokens(tokens, mapping):
+                mapped_tokens = torch.clone(tokens)
+                for original, mapped in mapping.items():
+                    mapped_tokens[tokens == original] = mapped
+                return mapped_tokens
+
+            # Function to remap tokens back to the original vocab
+            def remap_tokens(tokens, reverse_mapping):
+                remapped_tokens = torch.clone(tokens)
+                for mapped, original in reverse_mapping.items():
+                    remapped_tokens[tokens == mapped] = original
+                return remapped_tokens
+            
+            test_sentences = map_tokens(test_sentences, mapping)
         test_output = model.generate(test_sentences.to(device), 128)
+        if datatype == "ci":
+            test_output = remap_tokens(test_output, reverse_mapping)
         print(test_output)
         torch.save(test_output.to("cpu"), f"{exp_name}_test_output.pt")
         break
