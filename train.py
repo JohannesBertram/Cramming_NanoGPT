@@ -36,7 +36,7 @@ seed = 5
 
 torch.manual_seed(seed)
 #torch.cuda.manual_seed_all(seed)
-sec_per_day = 60
+sec_per_day = 79200
 
 learning_rate = 6e-4 # max learning rate
 
@@ -47,7 +47,7 @@ acc_increase = 1
 acc_warmup = 0
 use_acc_scheduler = True
 
-batch_size = 12 # if gradient_accumulation_steps > 1, this is the micro-batch size
+batch_size = 16 # if gradient_accumulation_steps > 1, this is the micro-batch size
 block_size = 512
 #mean_batch_size = 300
 #est_sec_per_batch_element = 0.178
@@ -58,7 +58,7 @@ datatype = "ci"
 set_vocab_size = 33408
 
 #eval_intervals = np.append(np.arange(0, sec_per_day - 360, 720), np.arange(sec_per_day - 120, sec_per_day, 110))
-eval_intervals = np.append(np.append(np.arange(0, sec_per_day - 360, 720), np.arange(sec_per_day - 120, sec_per_day, 110)), np.array([60, 61]))
+eval_intervals = np.append(np.arange(0, sec_per_day - 360, 720), np.arange(sec_per_day - 120, sec_per_day, 110))
 print(len(eval_intervals))
 
 optimizer_type = "AdamW"
@@ -419,7 +419,7 @@ while True:
         #print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
         train_info[:, current_eval_num - 1] = torch.tensor([iter_num, time_passed, lr, gradient_accumulation_steps, mfu, losses['val']])
         #print(train_info[:, iter_num // eval_interval])
-        print(losses['val'])
+        #print(losses['val'])
         
         """if wandb_log:
             wandb.log({
