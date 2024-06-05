@@ -449,7 +449,7 @@ while True:
         test_sentences[3] = torch.tensor(enc.encode("Amidst the echoes of time, an ancient melody began to"))
         if datatype == "ci":
             # Load the reverse mapping from the JSON file
-            with open(reverse_mapping_path, 'r') as f:
+            with open("data/openwebtext/reverse_mapping.json", 'r') as f:
                 reverse_mapping = json.load(f)
 
             # Convert keys back to integers since JSON converts keys to strings
