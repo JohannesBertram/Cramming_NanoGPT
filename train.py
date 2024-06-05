@@ -447,7 +447,7 @@ while True:
         test_sentences[0] = torch.tensor(enc.encode("The seminar 'deep learning research kitchen' would be fun because"))
         test_sentences[1] = torch.tensor(enc.encode("The golden gate bridge in Tuebingen was built in the"))
         test_sentences[2] = torch.tensor(enc.encode("Where can you eat the healthiest and most delicious food?"))
-        test_sentences[3] = torch.tensor(enc.encode("Amidst the echoes of time, an ancient melody began to"))
+        test_sentences[3] = torch.tensor(enc.encode("Among the echoes of time, an ancient melody began to"))
         if datatype == "ci":
             # Load the reverse mapping from the JSON file
             with open("data/openwebtext/reverse_mapping.json", 'r') as f:
