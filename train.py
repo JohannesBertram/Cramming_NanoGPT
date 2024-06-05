@@ -356,10 +356,16 @@ while True:
         model.eval()
         enc = tiktoken.get_encoding("gpt2")
         test_sentences = torch.randint(50000, (4, 12))
-        test_sentences[0] = torch.tensor(enc.encode("The seminar 'deep learning research kitchen' would be fun because"))
-        test_sentences[1] = torch.tensor(enc.encode("The golden gate bridge in Tuebingen was built in the"))
-        test_sentences[2] = torch.tensor(enc.encode("Where can you eat the healthiest and most delicious food?"))
-        test_sentences[3] = torch.tensor(enc.encode("Amidst the echoes of time, an ancient melody began to"))
+        if datatype == "ci":
+            test_sentences[0] = torch.tensor(enc.encode("the seminar 'deep learning research kitchen' would be fun because"))
+            test_sentences[1] = torch.tensor(enc.encode("the golden gate bridge in tuebingen was built in the"))
+            test_sentences[2] = torch.tensor(enc.encode("where can you eat the healthiest and most delicious food?"))
+            test_sentences[3] = torch.tensor(enc.encode("amidst the echoes of time, an ancient melody began to"))
+        else:
+            test_sentences[0] = torch.tensor(enc.encode("The seminar 'deep learning research kitchen' would be fun because"))
+            test_sentences[1] = torch.tensor(enc.encode("The golden gate bridge in Tuebingen was built in the"))
+            test_sentences[2] = torch.tensor(enc.encode("Where can you eat the healthiest and most delicious food?"))
+            test_sentences[3] = torch.tensor(enc.encode("Amidst the echoes of time, an ancient melody began to"))
         if datatype == "ci":
             # Load the reverse mapping from the JSON file
             with open("data/openwebtext/reverse_mapping.json", 'r') as f:
@@ -444,10 +450,16 @@ while True:
         model.eval()
         enc = tiktoken.get_encoding("gpt2")
         test_sentences = torch.randint(50000, (4, 12))
-        test_sentences[0] = torch.tensor(enc.encode("The seminar 'deep learning research kitchen' would be fun because"))
-        test_sentences[1] = torch.tensor(enc.encode("The golden gate bridge in Tuebingen was built in the"))
-        test_sentences[2] = torch.tensor(enc.encode("Where can you eat the healthiest and most delicious food?"))
-        test_sentences[3] = torch.tensor(enc.encode("Among the echoes of time, an ancient melody began to play"))
+        if datatype == "ci":
+            test_sentences[0] = torch.tensor(enc.encode("the seminar 'deep learning research kitchen' would be fun because"))
+            test_sentences[1] = torch.tensor(enc.encode("the golden gate bridge in tuebingen was built in the"))
+            test_sentences[2] = torch.tensor(enc.encode("where can you eat the healthiest and most delicious food?"))
+            test_sentences[3] = torch.tensor(enc.encode("amidst the echoes of time, an ancient melody began to"))
+        else:
+            test_sentences[0] = torch.tensor(enc.encode("The seminar 'deep learning research kitchen' would be fun because"))
+            test_sentences[1] = torch.tensor(enc.encode("The golden gate bridge in Tuebingen was built in the"))
+            test_sentences[2] = torch.tensor(enc.encode("Where can you eat the healthiest and most delicious food?"))
+            test_sentences[3] = torch.tensor(enc.encode("Amidst the echoes of time, an ancient melody began to"))
         if datatype == "ci":
             # Load the reverse mapping from the JSON file
             with open("data/openwebtext/reverse_mapping.json", 'r') as f:
