@@ -42,7 +42,7 @@ learning_rate = 6e-4 # max learning rate
 
 gradient_accumulation_steps = 8*5*8 # used to simulate larger batch sizes
 min_acc = 1 # min accumuluation steps at start of batch_size schedule
-max_acc = 1
+max_acc = 32
 acc_increase = 1
 acc_warmup = 0
 use_acc_scheduler = True
