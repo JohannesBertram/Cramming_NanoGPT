@@ -25,5 +25,5 @@ echo COPIED
 # Load the conda environment
 source activate data
 # Run your script
-python prepare_lc.py
+python prepare_new.py
 echo DONE
