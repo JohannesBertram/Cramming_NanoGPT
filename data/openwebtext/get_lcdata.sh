@@ -4,10 +4,10 @@
 ####
 #SBATCH --job-name=lcdata
 #SBATCH --cpus-per-task=24
-#SBATCH --partition=week
+#SBATCH --partition=day
 #SBATCH --gres=gpu:0
 #SBATCH --mem-per-cpu=150
-#SBATCH --time=7000:00
+#SBATCH --time=1400:00
 #SBATCH --error=job.%J.err
 #SBATCH --output=job.%J.out
 #SBATCH --mail-type=ALL
