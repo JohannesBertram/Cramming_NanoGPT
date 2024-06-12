@@ -1,19 +1,7 @@
 """
-This training script can be run both on a single gpu in debug mode,
-and also in a larger training run with distributed data parallel (ddp).
-
-To run on a single GPU, example:
-$ python train.py --batch_size=32 --compile=False
-
-To run with DDP on 4 gpus on 1 node, example:
-$ torchrun --standalone --nproc_per_node=4 train.py
-
-To run with DDP on 4 gpus across 2 nodes, example:
-- Run on the first (master) node with example IP 123.456.123.456:
-$ torchrun --nproc_per_node=8 --nnodes=2 --node_rank=0 --master_addr=123.456.123.456 --master_port=1234 train.py
-- Run on the worker node:
-$ torchrun --nproc_per_node=8 --nnodes=2 --node_rank=1 --master_addr=123.456.123.456 --master_port=1234 train.py
-(If your cluster does not have Infiniband interconnect prepend NCCL_IB_DISABLE=1)
+This script is an adaptation of Andrej Karpathy's training script for nanoGPT.
+The intention is to train the original nanoGPT model on a single GPU within
+a specified training budget (for example 1 day). 
 """
 
 import os
@@ -35,7 +23,6 @@ output_type = "res"
 seed = 5
 
 torch.manual_seed(seed)
-#torch.cuda.manual_seed_all(seed)
 sec_per_day = 79200
 
 learning_rate = 6e-4 # max learning rate
@@ -48,15 +35,13 @@ acc_increase = 1
 acc_warmup = 0
 use_acc_scheduler = True
 
-batch_size = 5 # if gradient_accumulation_steps > 1, this is the micro-batch size
+batch_size = 4 # if gradient_accumulation_steps > 1, this is the micro-batch size
 block_size = 1024
-#mean_batch_size = 300
-#est_sec_per_batch_element = 0.178
-#max_iters = np.min([sec_per_day * 2, int(np.round((sec_per_day / (mean_batch_size * est_sec_per_batch_element)) * 1.2))]) # total number of training iterations
+
 lr_decay = 1 # should be ~= max_iters per Chinchilla
 
-datatype = "full"
-set_vocab_size = 0
+datatype = "ci"
+set_vocab_size = 30592
 
 #eval_intervals = np.append(np.arange(0, sec_per_day - 360, 720), np.arange(sec_per_day - 120, sec_per_day, 110))
 eval_intervals = np.append(np.arange(0, sec_per_day - 360, 720), np.arange(sec_per_day - 120, sec_per_day, 110))
@@ -79,10 +64,7 @@ eval_iters = 100 if output_type == "res" else 10
 eval_only = False # if True, script exits right after the first eval
 always_save_checkpoint = False # if True, always save a checkpoint after each eval
 init_from = 'scratch' # 'scratch' or 'resume' or 'gpt2*'
-# wandb logging
-wandb_log = False # disabled by default
-wandb_project = 'owt'
-wandb_run_name = 'gpt2' # 'run' + str(time.time())
+
 # data
 dataset = 'openwebtext'
 
@@ -122,38 +104,16 @@ exec(open('configurator.py').read()) # overrides from command line or config fil
 config = {k: globals()[k] for k in config_keys} # will be useful for logging
 # -----------------------------------------------------------------------------
 
-# various inits, derived attributes, I/O setup
-ddp = int(os.environ.get('RANK', -1)) != -1 # is this a ddp run?
-if False:
-    init_process_group(backend=backend)
-    ddp_rank = int(os.environ['RANK'])
-    ddp_local_rank = int(os.environ['LOCAL_RANK'])
-    ddp_world_size = int(os.environ['WORLD_SIZE'])
-    device = f'cuda:{ddp_local_rank}'
-    torch.cuda.set_device(device)
-    master_process = ddp_rank == 0 # this process will do logging, checkpointing etc.
-    seed_offset = ddp_rank # each process gets a different seed
-    # world_size number of processes will be training simultaneously, so we can scale
-    # down the desired gradient accumulation iterations per process proportionally
-    assert gradient_accumulation_steps % ddp_world_size == 0
-    gradient_accumulation_steps //= ddp_world_size
-else:
-    # if not ddp, we are running on a single gpu, and one process
-    master_process = True
-    seed_offset = 0
-    ddp_world_size = 1
 if use_acc_scheduler:
-    min_tokens_per_iter = min_acc * ddp_world_size * batch_size * block_size
+    min_tokens_per_iter = min_acc * batch_size * block_size
     print(f"min tokens per iteration will be: {min_tokens_per_iter:,}")
-    max_tokens_per_iter = max_acc * ddp_world_size * batch_size * block_size
+    max_tokens_per_iter = max_acc * batch_size * block_size
     print(f"max tokens per iteration will be: {max_tokens_per_iter:,}")
 else:
-    tokens_per_iter = gradient_accumulation_steps * ddp_world_size * batch_size * block_size
+    tokens_per_iter = gradient_accumulation_steps * batch_size * block_size
     print(f"tokens per iteration will be: {tokens_per_iter:,}")
 
-if master_process:
-    os.makedirs(out_dir, exist_ok=True)
-#torch.manual_seed(1337 + seed_offset)
+os.makedirs(out_dir, exist_ok=True)
 torch.backends.cuda.matmul.allow_tf32 = True # allow tf32 on matmul
 torch.backends.cudnn.allow_tf32 = True # allow tf32 on cudnn
 device_type = 'cuda' if 'cuda' in device else 'cpu' # for later use in torch.autocast
@@ -168,13 +128,13 @@ def get_batch(split):
     # https://stackoverflow.com/questions/45132940/numpy-memmap-memory-usage-want-to-iterate-once/61472122#61472122
     if split == 'train':
         if datatype == "ci":
-            data = np.memmap(os.path.join(data_dir, 'mapped_train.bin'), dtype=np.uint16, mode='r')
+            data = np.memmap(os.path.join(data_dir, 'new_tokenizer_train.bin'), dtype=np.uint16, mode='r')
         else:
             data = np.memmap(os.path.join(data_dir, 'train.bin'), dtype=np.uint16, mode='r')
         ix = torch.randint(len(data) - 1024, (batch_size,))
     else:
         if datatype == "ci":
-            data = np.memmap(os.path.join(data_dir, 'mapped_val.bin'), dtype=np.uint16, mode='r')
+            data = np.memmap(os.path.join(data_dir, 'new_tokenizer_val.bin'), dtype=np.uint16, mode='r')
         else:
             data = np.memmap(os.path.join(data_dir, 'val.bin'), dtype=np.uint16, mode='r')
         ix = torch.randint(len(data) - 1024, (4,))
@@ -216,7 +176,7 @@ if init_from == 'scratch':
     
     if set_vocab_size > 0:
         model_args['vocab_size'] = set_vocab_size
-        print("case-insensitive vocab_size of 33408 (33323 rounded up for efficiency)")
+        print(f"case-insensitive vocab_size of {set_vocab_size} (33323 rounded up for efficiency)")
     else:    
         if meta_vocab_size is None:
             print("defaulting to vocab_size of GPT-2 to 50304 (50257 rounded up for efficiency)")
@@ -246,14 +206,7 @@ elif init_from == 'resume':
     model.load_state_dict(state_dict)
     iter_num = checkpoint['iter_num']
     best_val_loss = checkpoint['best_val_loss']
-elif init_from.startswith('gpt2'):
-    print(f"Initializing from OpenAI GPT-2 weights: {init_from}")
-    # initialize from OpenAI GPT-2 weights
-    override_args = dict(dropout=dropout)
-    model = GPT.from_pretrained(init_from, override_args)
-    # read off the created config params, so we can store them into checkpoint correctly
-    for k in ['n_layer', 'n_head', 'n_embd', 'block_size', 'bias', 'vocab_size']:
-        model_args[k] = getattr(model.config, k)
+
 # crop down the model block size if desired, using model surgery
 if block_size < model.config.block_size:
     model.crop_block_size(block_size)
@@ -275,9 +228,6 @@ if compile:
     unoptimized_model = model
     model = torch.compile(model) # requires PyTorch 2.0
 
-# wrap model into DDP container
-if ddp:
-    model = DDP(model, device_ids=[ddp_local_rank])
 
 # helps estimate an arbitrarily accurate loss over either split using many batches
 @torch.no_grad()
@@ -335,11 +285,6 @@ def get_acc_timed(tp):
     ratio = (tp / sec_per_day - acc_warmup) / (acc_increase - acc_warmup)
     assert 0 <= ratio <= 1
     return int(np.ceil(min_acc + ratio * (max_acc - min_acc)))
-
-# logging
-if wandb_log and master_process:
-    import wandb
-    wandb.init(project=wandb_project, name=wandb_run_name, config=config)
 
 # training loop
 X, Y = get_batch('train') # fetch the very first batch
@@ -412,7 +357,7 @@ while True:
     time_passed = bef_eval - t_init
     # evaluate the loss on train/val sets and write checkpoints
 
-    if (time_passed > eval_intervals[current_eval_num] or time_passed > sec_per_day) and master_process:
+    if (time_passed > eval_intervals[current_eval_num] or time_passed > sec_per_day):
     #if time.time() - t_init > sec_per_day:
         current_eval_num += 1
         losses = estimate_loss()
@@ -533,7 +478,7 @@ while True:
     t1 = time.time()
     dt = t1 - t0
     t0 = t1
-    if iter_num % log_interval == 0 and master_process:
+    if iter_num % log_interval == 0:
         #print(torch.cuda.memory_summary())
         # get loss as float. note: this is a CPU-GPU sync point
         # scale up to undo the division above, approximating the true total loss (exact would have been a sum)
