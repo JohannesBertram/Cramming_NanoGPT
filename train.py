@@ -301,12 +301,12 @@ while True:
     if eval_only:
         model.eval()
         
-        if datatype == "ci":
+        if datatype == "ci" and set_vocab_size > 0:
             enc = BertTokenizer.from_pretrained('bert-base-uncased')
         else:
             enc = tiktoken.get_encoding("gpt2")
         test_sentences = torch.randint(50000, (4, 12))
-        if datatype == "ci" and False:
+        if datatype == "ci":
             test_sentences[0] = torch.tensor(enc.encode("the seminar 'deep learning research kitchen' would be fun because"))
             test_sentences[1] = torch.tensor(enc.encode("the golden gate bridge in tuebingen was built in"))
             test_sentences[2] = torch.tensor(enc.encode("where can you eat the healthiest and most delicious food?"))
@@ -316,34 +316,9 @@ while True:
             test_sentences[1] = torch.tensor(enc.encode("The golden gate bridge in Tuebingen was built in the"))
             test_sentences[2] = torch.tensor(enc.encode("Where can you eat the healthiest and most delicious food?"))
             test_sentences[3] = torch.tensor(enc.encode("Amidst the echoes of time, an ancient melody began to"))
-        if datatype == "ci" and False:
-            # Load the reverse mapping from the JSON file
-            with open("data/openwebtext/reverse_mapping.json", 'r') as f:
-                reverse_mapping = json.load(f)
-
-            # Convert keys back to integers since JSON converts keys to strings
-            reverse_mapping = {int(k): int(v) for k, v in reverse_mapping.items()}
-
-            mapping = {v: k for k, v in reverse_mapping.items()}
-
-            # Example function to remap tokens back after training
-            def map_tokens(tokens, mapping):
-                mapped_tokens = torch.clone(tokens)
-                for original, mapped in mapping.items():
-                    mapped_tokens[tokens == original] = mapped
-                return mapped_tokens
-
-            # Function to remap tokens back to the original vocab
-            def remap_tokens(tokens, reverse_mapping):
-                remapped_tokens = torch.clone(tokens)
-                for mapped, original in reverse_mapping.items():
-                    remapped_tokens[tokens == mapped] = original
-                return remapped_tokens
-            
-            test_sentences = map_tokens(test_sentences, mapping)
+        
         test_output = model.generate(test_sentences.to(device), 128)
-        if datatype == "ci" and False:
-            test_output = remap_tokens(test_output, reverse_mapping)
+
         print(test_output)
         torch.save(test_output.to("cpu"), f"{exp_name}_test_output.pt")
         break
@@ -398,12 +373,13 @@ while True:
     # breaking condition
     if time_passed > sec_per_day:
         model.eval()
-        if datatype == "ci":
+        
+        if datatype == "ci" and set_vocab_size > 0:
             enc = BertTokenizer.from_pretrained('bert-base-uncased')
         else:
             enc = tiktoken.get_encoding("gpt2")
         test_sentences = torch.randint(50000, (4, 12))
-        if datatype == "ci" and False:
+        if datatype == "ci":
             test_sentences[0] = torch.tensor(enc.encode("the seminar 'deep learning research kitchen' would be fun because"))
             test_sentences[1] = torch.tensor(enc.encode("the golden gate bridge in tuebingen was built in"))
             test_sentences[2] = torch.tensor(enc.encode("where can you eat the healthiest and most delicious food?"))
@@ -413,36 +389,10 @@ while True:
             test_sentences[1] = torch.tensor(enc.encode("The golden gate bridge in Tuebingen was built in the"))
             test_sentences[2] = torch.tensor(enc.encode("Where can you eat the healthiest and most delicious food?"))
             test_sentences[3] = torch.tensor(enc.encode("Amidst the echoes of time, an ancient melody began to"))
-        if datatype == "ci" and False:
-            # Load the reverse mapping from the JSON file
-            with open("data/openwebtext/reverse_mapping.json", 'r') as f:
-                reverse_mapping = json.load(f)
-
-            # Convert keys back to integers since JSON converts keys to strings
-            reverse_mapping = {int(k): int(v) for k, v in reverse_mapping.items()}
-
-            mapping = {v: k for k, v in reverse_mapping.items()}
-
-            # Example function to remap tokens back after training
-            def map_tokens(tokens, mapping):
-                mapped_tokens = torch.clone(tokens)
-                for original, mapped in mapping.items():
-                    mapped_tokens[tokens == original] = mapped
-                return mapped_tokens
-
-            # Function to remap tokens back to the original vocab
-            def remap_tokens(tokens, reverse_mapping):
-                remapped_tokens = torch.clone(tokens)
-                for mapped, original in reverse_mapping.items():
-                    remapped_tokens[tokens == mapped] = original
-                return remapped_tokens
-            
-            test_sentences = map_tokens(test_sentences, mapping)
+        
         test_output = model.generate(test_sentences.to(device), 128)
-        if datatype == "ci" and False:
-            test_output = remap_tokens(test_output, reverse_mapping)
-        print(test_output)
 
+        print(test_output)
         torch.save(test_output.to("cpu"), f"{exp_name}_test_output.pt")
         break
 
