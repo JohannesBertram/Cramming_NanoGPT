@@ -41,7 +41,7 @@ if __name__ == '__main__':
         for split, dset in tokenized_dataset.items():
             arr_len = np.sum(dset['len'], dtype=np.uint64)
             filename = os.path.join(os.path.dirname(__file__), f'{prefix}_{split}.bin')
-            dtype = np.uint32  # Change dtype if necessary for the new tokenizer
+            dtype = np.uint16  # Change dtype if necessary for the new tokenizer
             arr = np.memmap(filename, dtype=dtype, mode='w+', shape=(arr_len,))
             total_batches = 1024
 

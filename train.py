@@ -129,22 +129,16 @@ def get_batch(split):
     # https://stackoverflow.com/questions/45132940/numpy-memmap-memory-usage-want-to-iterate-once/61472122#61472122
     if split == 'train':
         if datatype == "ci":
-            data = np.memmap(os.path.join(data_dir, 'new_tokenizer_train.bin'), dtype=np.uint16, mode='r')
+            data = np.memmap(os.path.join(data_dir, 'new_tokenizer_train.bin'), dtype=np.uint32, mode='r')
         else:
             data = np.memmap(os.path.join(data_dir, 'train.bin'), dtype=np.uint16, mode='r')
         ix = torch.randint(len(data) - 1024, (batch_size,))
     else:
         if datatype == "ci":
-            data = np.memmap(os.path.join(data_dir, 'new_tokenizer_val.bin'), dtype=np.uint16, mode='r')
+            data = np.memmap(os.path.join(data_dir, 'new_tokenizer_val.bin'), dtype=np.uint32, mode='r')
         else:
             data = np.memmap(os.path.join(data_dir, 'val.bin'), dtype=np.uint16, mode='r')
         ix = torch.randint(len(data) - 1024, (4,))
-    """"ix = torch.randint(len(data) - 1024, (4,))
-    assert 1024 % block_size == 0
-    #for i in range(1024 // block_size):
-    x = torch.cat([torch.stack([torch.from_numpy((data[i+j*block_size:i+j*block_size+block_size]).astype(np.int64)) for i in ix]) for j in range(1024 // block_size)])
-    y = torch.cat([torch.stack([torch.from_numpy((data[i+1+j*block_size:i+1+j*block_size+block_size]).astype(np.int64)) for i in ix]) for j in range(1024 // block_size)])"""
-    
     x = torch.stack([torch.from_numpy((data[i:i+block_size]).astype(np.int64)) for i in ix])
     y = torch.stack([torch.from_numpy((data[i+1:i+1+block_size]).astype(np.int64)) for i in ix])
     if device_type == 'cuda':
