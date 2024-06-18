@@ -56,4 +56,4 @@ if __name__ == '__main__':
             arr.flush()
 
     # Save the tokenized datasets
-    save_tokenized_dataset(tokenized_dataset, 'new_tokenizer')  # Using new tokenizer
+    save_tokenized_dataset(tokenized_dataset, 'bert')  # Using new tokenizer
