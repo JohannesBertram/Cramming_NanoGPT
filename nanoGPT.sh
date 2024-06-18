@@ -4,7 +4,7 @@
 ####
 #SBATCH --job-name=nanoGPT
 #SBATCH --cpus-per-task=1
-#SBATCH --partition=week
+#SBATCH --partition=day
 #SBATCH --gres=gpu:4
 #SBATCH --mem-per-cpu=150
 #SBATCH --time=1440:00
