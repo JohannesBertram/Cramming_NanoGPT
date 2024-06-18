@@ -21,7 +21,7 @@ from torch.distributed import init_process_group, destroy_process_group
 from model import GPTConfig, GPT
 
 output_type = "res"
-seed = 5
+seed = 6
 
 torch.manual_seed(seed)
 sec_per_day = 79200
@@ -129,13 +129,13 @@ def get_batch(split):
     # https://stackoverflow.com/questions/45132940/numpy-memmap-memory-usage-want-to-iterate-once/61472122#61472122
     if split == 'train':
         if datatype == "ci":
-            data = np.memmap(os.path.join(data_dir, 'new_tokenizer_train.bin'), dtype=np.uint32, mode='r')
+            data = np.memmap(os.path.join(data_dir, 'bert_train.bin'), dtype=np.uint16, mode='r')
         else:
             data = np.memmap(os.path.join(data_dir, 'train.bin'), dtype=np.uint16, mode='r')
         ix = torch.randint(len(data) - 1024, (batch_size,))
     else:
         if datatype == "ci":
-            data = np.memmap(os.path.join(data_dir, 'new_tokenizer_val.bin'), dtype=np.uint32, mode='r')
+            data = np.memmap(os.path.join(data_dir, 'bert_val.bin'), dtype=np.uint16, mode='r')
         else:
             data = np.memmap(os.path.join(data_dir, 'val.bin'), dtype=np.uint16, mode='r')
         ix = torch.randint(len(data) - 1024, (4,))
