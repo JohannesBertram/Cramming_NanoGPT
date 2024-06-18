@@ -31,7 +31,7 @@ min_lr = 6e-5 # minimum learning rate, should be ~= learning_rate/10 per Chinchi
 
 gradient_accumulation_steps = 8*5*8 # used to simulate larger batch sizes
 min_acc = 1 # min accumuluation steps at start of batch_size schedule
-max_acc = 32
+max_acc = 16
 acc_increase = 1
 acc_warmup = 0
 use_acc_scheduler = True
@@ -54,7 +54,7 @@ exp_name = f"{output_type}_{datatype}_{set_vocab_size}_{optimizer_type}_{min_acc
 
 # saving training progress
 train_info = torch.zeros((6, len(eval_intervals) + 2))
-#torch.save(train_info, f"{exp_name}.pt")
+torch.save(train_info, f"{exp_name}.pt")
 
 # -----------------------------------------------------------------------------
 # default config values designed to train a gpt2 (124M) on OpenWebText
@@ -62,9 +62,9 @@ train_info = torch.zeros((6, len(eval_intervals) + 2))
 out_dir = 'out'
 log_interval = 1
 eval_iters = 100 if output_type == "res" else 10
-eval_only = True # if True, script exits right after the first eval
+eval_only = False # if True, script exits right after the first eval
 always_save_checkpoint = False # if True, always save a checkpoint after each eval
-init_from = 'resume' # 'scratch' or 'resume' or 'gpt2*'
+init_from = 'scratch' # 'scratch' or 'resume' or 'gpt2*'
 
 # data
 dataset = 'openwebtext'
@@ -242,6 +242,10 @@ def estimate_loss():
             losses = torch.zeros(eval_iters)
             for k in range(eval_iters):
                 X, Y = get_batch(split)
+                print("#########")
+                print(X)
+                print("Y ######")
+                print(Y)
                 with ctx:
                     logits, loss = model(X, Y)
                 losses[k] = loss.item()
