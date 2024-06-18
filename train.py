@@ -54,7 +54,7 @@ exp_name = f"{output_type}_{datatype}_{set_vocab_size}_{optimizer_type}_{min_acc
 
 # saving training progress
 train_info = torch.zeros((6, len(eval_intervals) + 2))
-torch.save(train_info, f"{exp_name}.pt")
+#torch.save(train_info, f"{exp_name}.pt")
 
 # -----------------------------------------------------------------------------
 # default config values designed to train a gpt2 (124M) on OpenWebText
@@ -62,9 +62,9 @@ torch.save(train_info, f"{exp_name}.pt")
 out_dir = 'out'
 log_interval = 1
 eval_iters = 100 if output_type == "res" else 10
-eval_only = False # if True, script exits right after the first eval
+eval_only = True # if True, script exits right after the first eval
 always_save_checkpoint = False # if True, always save a checkpoint after each eval
-init_from = 'scratch' # 'scratch' or 'resume' or 'gpt2*'
+init_from = 'resume' # 'scratch' or 'resume' or 'gpt2*'
 
 # data
 dataset = 'openwebtext'
