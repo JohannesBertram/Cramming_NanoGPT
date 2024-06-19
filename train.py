@@ -21,7 +21,7 @@ from torch.distributed import init_process_group, destroy_process_group
 from model import GPTConfig, GPT
 
 output_type = "res"
-seed = 6
+seed = 5
 
 torch.manual_seed(seed)
 sec_per_day = 79200
@@ -36,7 +36,7 @@ acc_increase = 1
 acc_warmup = 0
 use_acc_scheduler = True
 
-batch_size = 12 # if gradient_accumulation_steps > 1, this is the micro-batch size
+batch_size = 16 # if gradient_accumulation_steps > 1, this is the micro-batch size
 block_size = 512
 
 lr_decay = 1 # should be ~= max_iters per Chinchilla
