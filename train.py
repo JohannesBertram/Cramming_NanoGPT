@@ -20,14 +20,14 @@ from torch.distributed import init_process_group, destroy_process_group
 
 from model import GPTConfig, GPT
 
-output_type = "voc"
+output_type = "lr"
 seed = 5
 
 torch.manual_seed(seed)
 sec_per_day = 79200
 
 learning_rate = 6e-4 # max learning rate
-min_lr = 6e-5 # minimum learning rate, should be ~= learning_rate/10 per Chinchilla
+min_lr = 6e-4 # minimum learning rate, should be ~= learning_rate/10 per Chinchilla
 
 gradient_accumulation_steps = 8*5*8 # used to simulate larger batch sizes
 min_acc = 32 # min accumuluation steps at start of batch_size schedule
@@ -175,7 +175,7 @@ if init_from == 'scratch':
     else:    
         if meta_vocab_size is None:
             print("defaulting to vocab_size of GPT-2 to 50304 (50257 rounded up for efficiency)")
-        model_args['vocab_size'] = meta_vocab_size if meta_vocab_size is not None else 50257
+        model_args['vocab_size'] = meta_vocab_size if meta_vocab_size is not None else 50304
     gptconf = GPTConfig(**model_args)
     model = GPT(gptconf)
 elif init_from == 'resume':
