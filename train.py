@@ -20,29 +20,29 @@ from torch.distributed import init_process_group, destroy_process_group
 
 from model import GPTConfig, GPT
 
-output_type = "lr"
+output_type = "res"
 seed = 5
 
 torch.manual_seed(seed)
 sec_per_day = 79200
 
 learning_rate = 6e-4 # max learning rate
-min_lr = 6e-4 # minimum learning rate, should be ~= learning_rate/10 per Chinchilla
+min_lr = 6e-5 # minimum learning rate, should be ~= learning_rate/10 per Chinchilla
 
 gradient_accumulation_steps = 8*5*8 # used to simulate larger batch sizes
-min_acc = 32 # min accumuluation steps at start of batch_size schedule
+min_acc = 1 # min accumuluation steps at start of batch_size schedule
 max_acc = 32
 acc_increase = 1
 acc_warmup = 0
 use_acc_scheduler = True
 
-batch_size = 4 # if gradient_accumulation_steps > 1, this is the micro-batch size
-block_size = 1024
+batch_size = 16 # if gradient_accumulation_steps > 1, this is the micro-batch size
+block_size = 512
 
 lr_decay = 1 # should be ~= max_iters per Chinchilla
 
-datatype = "full"
-set_vocab_size = 0
+datatype = "ci"
+set_vocab_size = 30592
 
 #eval_intervals = np.append(np.arange(0, sec_per_day - 360, 720), np.arange(sec_per_day - 120, sec_per_day, 110))
 eval_intervals = np.append(np.arange(0, sec_per_day - 360, 720), np.arange(sec_per_day - 120, sec_per_day, 110))
@@ -440,4 +440,3 @@ while True:
     # termination conditions
     #if iter_num > max_iters:
     #    break
-
