@@ -20,7 +20,7 @@ from torch.distributed import init_process_group, destroy_process_group
 
 from model import GPTConfig, GPT
 
-output_type = "fa"
+output_type = "voc"
 seed = 5
 
 torch.manual_seed(seed)
@@ -175,7 +175,7 @@ if init_from == 'scratch':
     else:    
         if meta_vocab_size is None:
             print("defaulting to vocab_size of GPT-2 to 50304 (50257 rounded up for efficiency)")
-        model_args['vocab_size'] = meta_vocab_size if meta_vocab_size is not None else 50304
+        model_args['vocab_size'] = meta_vocab_size if meta_vocab_size is not None else 50257
     gptconf = GPTConfig(**model_args)
     model = GPT(gptconf)
 elif init_from == 'resume':
