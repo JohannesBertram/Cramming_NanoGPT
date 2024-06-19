@@ -20,7 +20,7 @@ from torch.distributed import init_process_group, destroy_process_group
 
 from model import GPTConfig, GPT
 
-output_type = "res"
+output_type = "voc"
 seed = 5
 
 torch.manual_seed(seed)
@@ -61,7 +61,7 @@ torch.save(train_info, f"{exp_name}.pt")
 # I/O
 out_dir = 'out'
 log_interval = 1
-eval_iters = 100 if output_type == "res" else 10
+eval_iters = 100 if output_type == "res" else 100
 eval_only = False # if True, script exits right after the first eval
 always_save_checkpoint = False # if True, always save a checkpoint after each eval
 init_from = 'scratch' # 'scratch' or 'resume' or 'gpt2*'
