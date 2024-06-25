@@ -2,6 +2,10 @@
 
 This is basically just the code from [nanoGPT](https://github.com/karpathy/nanoGPT) for now. The idea is to make some adjustments to see how far one can get training this within 1 day.
 
+The results are displayed in results.ipynb.
+
+Below, the readme from Andrej Karpathy is kept as is for explanation of the base model.
+
 # nanoGPT
 
 ![nanoGPT](assets/nanogpt.jpg)

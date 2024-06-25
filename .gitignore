@@ -11,6 +11,4 @@ input.txt
 env/
 venv/
 plotting.ipynb
-figs/
-results/
 save_data.py

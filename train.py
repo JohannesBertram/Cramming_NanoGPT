@@ -20,6 +20,8 @@ from torch.distributed import init_process_group, destroy_process_group
 
 from model import GPTConfig, GPT
 
+# Parameters that I changed to test different setting
+
 output_type = "res"
 seed = 5
 
@@ -29,11 +31,10 @@ sec_per_day = 79200
 learning_rate = 6e-4 # max learning rate
 min_lr = 6e-5 # minimum learning rate, should be ~= learning_rate/10 per Chinchilla
 
-gradient_accumulation_steps = 8*5*8 # used to simulate larger batch sizes
 min_acc = 1 # min accumuluation steps at start of batch_size schedule
-max_acc = 32
-acc_increase = 1
-acc_warmup = 0
+max_acc = 32 # max accumulation steps at end of batch_size schedule. If equal to min_acc, no schedule used
+acc_increase = 1 # between 0 and 1, fraction at which to finish increasing the batch size
+acc_warmup = 0 # between 0 and acc_increase, fraction at which to start increasing the batch size
 use_acc_scheduler = True
 
 batch_size = 16 # if gradient_accumulation_steps > 1, this is the micro-batch size
@@ -44,11 +45,9 @@ lr_decay = 1 # should be ~= max_iters per Chinchilla
 datatype = "ci"
 set_vocab_size = 30592
 
-#eval_intervals = np.append(np.arange(0, sec_per_day - 360, 720), np.arange(sec_per_day - 120, sec_per_day, 110))
 eval_intervals = np.append(np.arange(0, sec_per_day - 360, 720), np.arange(sec_per_day - 120, sec_per_day, 110))
-print(len(eval_intervals))
 
-optimizer_type = "AdamW"
+optimizer_type = "AdamW" # Lion and Sophia implemented but need to change manually in code below
 
 exp_name = f"{output_type}_{datatype}_{set_vocab_size}_{optimizer_type}_{min_acc}_{max_acc}_{acc_warmup}_{acc_increase}_{batch_size}_{block_size}_{learning_rate}_{min_lr}_{seed}"
 
@@ -57,11 +56,13 @@ train_info = torch.zeros((6, len(eval_intervals) + 2))
 torch.save(train_info, f"{exp_name}.pt")
 
 # -----------------------------------------------------------------------------
+# Parameters below that I kept the same
+# ------------------------------------------------------------------------------
 # default config values designed to train a gpt2 (124M) on OpenWebText
 # I/O
 out_dir = 'out'
 log_interval = 1
-eval_iters = 100 if output_type == "res" else 100
+eval_iters = 100
 eval_only = False # if True, script exits right after the first eval
 always_save_checkpoint = False # if True, always save a checkpoint after each eval
 init_from = 'scratch' # 'scratch' or 'resume' or 'gpt2*'
@@ -97,7 +98,7 @@ backend = 'nccl' # 'nccl', 'gloo', etc.
 # system
 device = 'cuda' # examples: 'cpu', 'cuda', 'cuda:0', 'cuda:1' etc., or try 'mps' on macbooks
 dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16' # 'float32', 'bfloat16', or 'float16', the latter will auto implement a GradScaler
-print(dtype)
+
 compile = False # use PyTorch 2.0 to compile the model to be faster
 # -----------------------------------------------------------------------------
 config_keys = [k for k,v in globals().items() if not k.startswith('_') and isinstance(v, (int, float, bool, str))]
@@ -247,19 +248,6 @@ def estimate_loss():
     model.train()
     return out
 
-# learning rate decay scheduler (cosine with warmup)
-def get_lr(it):
-    # 1) linear warmup for warmup steps
-    if it < warmup:
-        return learning_rate * it / warmup
-    # 2) if it > lr_decay, return min learning rate
-    if it > lr_decay:
-        return min_lr
-    # 3) in between, use cosine decay down to min learning rate
-    decay_ratio = (it - warmup) / (lr_decay - warmup)
-    assert 0 <= decay_ratio <= 1
-    coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio)) # coeff ranges 0..1
-    return min_lr + coeff * (learning_rate - min_lr)
 
 # learning rate decay scheduler (cosine with warmup)
 def get_lr_timed(tp):
@@ -296,34 +284,7 @@ local_iter_num = 0 # number of iterations in the lifetime of this process
 raw_model = model # unwrap DDP container if needed
 running_mfu = -1.0
 while True:
-    if eval_only:
-        model.eval()
-        
-        if datatype == "ci" and set_vocab_size > 0:
-            enc = BertTokenizer.from_pretrained('bert-base-uncased')
-        else:
-            enc = tiktoken.get_encoding("gpt2")
-        test_sentences = torch.randint(50000, (4, 12))
-        if datatype == "ci":
-            test_sentences[0] = torch.tensor(enc.encode("the seminar 'deep learning research kitchen' would be"))
-            test_sentences[1] = torch.tensor(enc.encode("the golden gate bridge in tuebingen was built"))
-            test_sentences[2] = torch.tensor(enc.encode("where can you eat the most delicious healthy food?"))
-            test_sentences[3] = torch.tensor(enc.encode("amidst the echoes of time, an ancient melody began"))
-        else:
-            test_sentences[0] = torch.tensor(enc.encode("The seminar 'deep learning research kitchen' would be fun because"))
-            test_sentences[1] = torch.tensor(enc.encode("The golden gate bridge in Tuebingen was built in the"))
-            test_sentences[2] = torch.tensor(enc.encode("Where can you eat the healthiest and most delicious food?"))
-            test_sentences[3] = torch.tensor(enc.encode("Amidst the echoes of time, an ancient melody began to"))
-        
-        test_output = model.generate(test_sentences.to(device), 128)
-
-        print(test_output)
-        torch.save(test_output.to("cpu"), f"{exp_name}_test_output.pt")
-        break
-
-    if time_passed > 720 and not os.path.isfile(f"{exp_name}.pt"):
-        break
-
+    
     # determine and set the learning rate for this iteration
     lr = get_lr_timed(time_passed) if decay_lr else learning_rate
     for param_group in optimizer.param_groups:
@@ -336,22 +297,10 @@ while True:
     # evaluate the loss on train/val sets and write checkpoints
 
     if (time_passed > eval_intervals[current_eval_num] or time_passed > sec_per_day):
-    #if time.time() - t_init > sec_per_day:
         current_eval_num += 1
         losses = estimate_loss()
-        #print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
         train_info[:, current_eval_num - 1] = torch.tensor([iter_num, time_passed, lr, gradient_accumulation_steps, mfu, losses['val']])
-        #print(train_info[:, iter_num // eval_interval])
-        #print(losses['val'])
-        
-        """if wandb_log:
-            wandb.log({
-                "iter": iter_num,
-                "train/loss": losses['train'],
-                "val/loss": losses['val'],
-                "lr": lr,
-                "mfu": running_mfu*100, # convert to percentage
-            })"""
+
         if losses['val'] < best_val_loss or always_save_checkpoint:
             best_val_loss = losses['val']
             if iter_num > 0:
@@ -365,33 +314,10 @@ while True:
                 }
                 print(f"saving checkpoint to {out_dir}")
                 torch.save(checkpoint, os.path.join(out_dir, f'ckpt_{exp_name}.pt'))
-        print("save")
         torch.save(train_info, f"{exp_name}.pt")
 
     # breaking condition
     if time_passed > sec_per_day:
-        model.eval()
-        
-        if datatype == "ci" and set_vocab_size > 0:
-            enc = BertTokenizer.from_pretrained('bert-base-uncased')
-        else:
-            enc = tiktoken.get_encoding("gpt2")
-        test_sentences = torch.randint(50000, (4, 12))
-        if datatype == "ci":
-            test_sentences[0] = torch.tensor(enc.encode("the seminar 'deep learning research kitchen' would be"))
-            test_sentences[1] = torch.tensor(enc.encode("the golden gate bridge in tuebingen was built"))
-            test_sentences[2] = torch.tensor(enc.encode("where can you eat the most delicious healthy food?"))
-            test_sentences[3] = torch.tensor(enc.encode("amidst the echoes of time, an ancient melody began"))
-        else:
-            test_sentences[0] = torch.tensor(enc.encode("The seminar 'deep learning research kitchen' would be fun because"))
-            test_sentences[1] = torch.tensor(enc.encode("The golden gate bridge in Tuebingen was built in the"))
-            test_sentences[2] = torch.tensor(enc.encode("Where can you eat the healthiest and most delicious food?"))
-            test_sentences[3] = torch.tensor(enc.encode("Amidst the echoes of time, an ancient melody began to"))
-        
-        test_output = model.generate(test_sentences.to(device), 128)
-
-        print(test_output)
-        torch.save(test_output.to("cpu"), f"{exp_name}_test_output.pt")
         break
 
     # offsetting t_init such that the eval time does not count towards the 1 day limit
@@ -436,7 +362,3 @@ while True:
         
     iter_num += 1
     local_iter_num += 1
-
-    # termination conditions
-    #if iter_num > max_iters:
-    #    break
