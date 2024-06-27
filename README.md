@@ -1,6 +1,8 @@
-# Work in progress: trying to cram nanoGPT
+# Trying to cram nanoGPT
 
-This is basically just the code from [nanoGPT](https://github.com/karpathy/nanoGPT) for now. The idea is to make some adjustments to see how far one can get training this within 1 day.
+This is based on the code from [nanoGPT](https://github.com/karpathy/nanoGPT). Inspired by [Cramming](https://arxiv.org/abs/2212.14034), the goal of this project was to add adjustments to train the model as far as possible on a single GTX 1080 Ti in 22 hours. 
+
+The main addition to the code includes training for a specific amount of time instead of iterations and adjusting schedulers, including a batch size schedule, accordingly.
 
 The results are displayed in results.ipynb.
 
